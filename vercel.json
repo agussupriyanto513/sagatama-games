@@ -9,6 +9,7 @@
     { "src": "/api/pi-payment/incomplete", "dest": "/api/payments/incomplete.js" },
     { "src": "/games",                     "dest": "/SAGATAMA-GAMES.html" },
     { "src": "/",                          "dest": "/SAGATAMA-GAMES.html" },
+    { "src": "/terms",                     "dest": "/terms-privacy.html" },
     { "src": "/(.*)\\.html",               "dest": "/$1.html" },
     { "src": "/(.*)",                      "dest": "/$1" }
   ]
