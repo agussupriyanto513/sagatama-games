@@ -1,15 +1,6 @@
 // /api/pi-payment/incomplete.js
-import admin from "firebase-admin";
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId:   process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-    })
-  });
-}
+import { admin, getFirebaseApp } from '../../firebase-init.js';
+getFirebaseApp();
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -23,44 +14,79 @@ export default async function handler(req, res) {
 
   console.log(`[incomplete] Menangani payment stuck: ${paymentId}`);
 
-  // Selalu cancel — ini adalah payment yang tidak pernah selesai.
-  // Lebih aman cancel semua agar user bisa mulai payment baru yang bersih.
-  await cancelOnPi(paymentId);
-
-  // Update Firestore di background, tidak ditunggu
   try {
-    const db = admin.firestore();
-    db.collection('pi_payments').doc(paymentId)
-      .set({
-        paymentId,
-        status:    'cancelled_incomplete',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true })
-      .catch(e => console.warn('[incomplete] Firestore error:', e.message));
-  } catch(_) {}
+    const checkResp = await fetch(
+      `https://api.minepi.com/v2/payments/${paymentId}`,
+      { headers: { 'Authorization': `Key ${process.env.PI_API_KEY}` } }
+    );
+    const piPayment = await checkResp.json();
+    const status = piPayment.status || {};
+    console.log(`[incomplete] Status Pi:`, JSON.stringify(status));
 
-  return res.status(200).json({ action: 'cancelled' });
+    if (status.developer_approved && status.transaction_verified && !status.developer_completed) {
+      console.log(`[incomplete] Sudah di blockchain → complete`);
+      await completeOnPi(paymentId, piPayment.transaction?.txid);
+
+      const sgtAmount = piPayment.metadata?.sgtAmount || 0;
+      const uid       = piPayment.metadata?.uid || null;
+      if (uid && sgtAmount > 0) await creditSGT(uid, sgtAmount, paymentId);
+
+      return res.status(200).json({ action: 'completed', paymentId });
+    }
+
+    if (!status.developer_approved || (status.developer_approved && !status.transaction_verified)) {
+      console.log(`[incomplete] Belum verified → cancel`);
+      await cancelOnPi(paymentId);
+      return res.status(200).json({ action: 'cancelled', paymentId });
+    }
+
+    return res.status(200).json({ action: 'none', paymentId });
+
+  } catch (err) {
+    console.error('[incomplete] ERROR:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+async function completeOnPi(paymentId, txid) {
+  try {
+    const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/complete`, {
+      method: 'POST',
+      headers: { 'Authorization': `Key ${process.env.PI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txid })
+    });
+    const d = await r.json();
+    r.ok ? console.log(`[incomplete] ✅ Complete OK ${paymentId}`) : console.warn(`[incomplete] Complete gagal:`, d);
+  } catch(e) { console.warn(`[incomplete] Complete error:`, e.message); }
 }
 
 async function cancelOnPi(paymentId) {
   try {
-    const response = await fetch(
-      `https://api.minepi.com/v2/payments/${paymentId}/cancel`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${process.env.PI_API_KEY}`,
-          'Content-Type':  'application/json'
-        }
+    const r = await fetch(`https://api.minepi.com/v2/payments/${paymentId}/cancel`, {
+      method: 'POST',
+      headers: { 'Authorization': `Key ${process.env.PI_API_KEY}`, 'Content-Type': 'application/json' }
+    });
+    const d = await r.json();
+    r.ok ? console.log(`[incomplete] ✅ Cancel OK ${paymentId}`) : console.warn(`[incomplete] Cancel gagal:`, d);
+  } catch(e) { console.warn(`[incomplete] Cancel error:`, e.message); }
+}
+
+async function creditSGT(uid, sgtAmount, paymentId) {
+  try {
+    const db = admin.firestore();
+    const payRef    = db.collection('pi_payments').doc(paymentId);
+    const playerRef = db.collection('players').doc(uid);
+
+    await db.runTransaction(async t => {
+      const [paySnap, playerSnap] = await Promise.all([t.get(payRef), t.get(playerRef)]);
+      if (paySnap.exists && paySnap.data().status === 'completed') {
+        console.log(`[incomplete] SGT sudah dikreditkan, skip`);
+        return;
       }
-    );
-    const data = await response.json();
-    if (!response.ok) {
-      console.warn(`[incomplete] Cancel Pi gagal ${paymentId}:`, data);
-    } else {
-      console.log(`[incomplete] ✅ Cancel Pi berhasil ${paymentId}`);
-    }
-  } catch(e) {
-    console.warn(`[incomplete] Exception cancel ${paymentId}:`, e.message);
-  }
+      const current = playerSnap.exists ? (playerSnap.data().sgtBalance || 0) : 0;
+      t.set(playerRef, { sgtBalance: current + sgtAmount, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      t.set(payRef,    { status: 'completed', updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    });
+    console.log(`[incomplete] ✅ Kredit ${sgtAmount} SGT → uid=${uid}`);
+  } catch(e) { console.error(`[incomplete] Kredit SGT error:`, e.message); }
 }
