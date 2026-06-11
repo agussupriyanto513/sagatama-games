@@ -1796,15 +1796,15 @@ async function piTopUpSGT(piAmount) {
       }
     }, {
       // Callback saat user approve di Pi wallet
-      onReadyForServerApproval: async function(paymentId) {
-        try {
-          // Kirim ke backend untuk di-approve di Pi Platform
-          await fetch('https://sagatama-games.vercel.app/api/pi-payment/approve', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentId, uid: fbUid, sgtAmount })
-          });
-        } catch(e) { console.warn('Approve error:', e); }
+      // PENTING: jangan await di sini — Pi SDK punya timeout pendek
+      // Jalankan fetch di background tanpa menunggu response
+      onReadyForServerApproval: function(paymentId) {
+        fetch('https://sagatama-games.vercel.app/api/pi-payment/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentId, uid: fbUid, sgtAmount })
+        }).catch(e => console.warn('Approve error:', e));
+        // Langsung return tanpa await agar Pi SDK tidak timeout
       },
       // Callback saat pembayaran selesai di blockchain
       onReadyForServerCompletion: async function(paymentId, txid) {
