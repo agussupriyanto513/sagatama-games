@@ -1758,17 +1758,25 @@ const PI_SGT_RATE = 100;
 
 // Handler untuk pembayaran yang belum selesai (wajib ada untuk Pi SDK)
 async function onIncompletePaymentFound(payment) {
-  console.log('Incomplete payment found:', payment);
-  // Coba complete atau cancel payment yang belum selesai
+  // Pi SDK bisa mengisi paymentId di field berbeda tergantung versi
+  const paymentId = payment.identifier || payment.paymentId || payment.payment_id || payment.id;
+  console.log("[incomplete] Payment stuck ditemukan:", paymentId, payment);
+
+  if (!paymentId) {
+    console.warn("[incomplete] Tidak ada paymentId:", payment);
+    return;
+  }
+
   try {
-    // Laporkan ke backend untuk diselesaikan
-    await fetch('https://sagatama-games.vercel.app/api/pi-payment/incomplete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentId: payment.identifier })
+    const resp = await fetch("https://sagatama-games.vercel.app/api/pi-payment/incomplete", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ paymentId })
     });
+    const data = await resp.json();
+    console.log("[incomplete] Server response:", data);
   } catch(e) {
-    console.warn('Could not resolve incomplete payment:', e);
+    console.warn("[incomplete] Gagal lapor ke server:", e.message);
   }
 }
 window.onIncompletePaymentFound = onIncompletePaymentFound;
