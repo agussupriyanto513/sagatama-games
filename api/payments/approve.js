@@ -1,5 +1,4 @@
 // /api/pi-payment/approve.js
-// Approve Pi payment + catat ke Firestore sebagai pending
 import admin from "firebase-admin";
 
 if (!admin.apps.length) {
@@ -13,49 +12,22 @@ if (!admin.apps.length) {
 }
 
 export default async function handler(req, res) {
-  // ── CORS untuk Pi Browser (sandbox maupun production) ──
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { paymentId, uid, sgtAmount } = req.body;
+  if (!paymentId) return res.status(400).json({ error: 'paymentId diperlukan' });
 
-  if (!paymentId) {
-    return res.status(400).json({ error: 'paymentId diperlukan' });
-  }
-
-  const db = admin.firestore();
-
+  // ─────────────────────────────────────────────────────────────────
+  // KUNCI: Langsung approve ke Pi API dulu, tanpa Firestore sama sekali.
+  // Pi SDK timeout ~3 detik. Firestore read/write butuh 1-2 detik sendiri.
+  // Jadi: approve Pi dulu → langsung response ke SDK → Firestore di background.
+  // ─────────────────────────────────────────────────────────────────
   try {
-    // 1. Cek apakah payment ini sudah pernah diproses (idempotency)
-    const existing = await db.collection('pi_payments').doc(paymentId).get();
-    if (existing.exists) {
-      const data = existing.data();
-      // Kalau sudah approved atau lebih jauh → langsung return sukses
-      if (['approved', 'completed'].includes(data.status)) {
-        console.log(`[approve] Payment ${paymentId} sudah pernah diproses (${data.status}), skip.`);
-        return res.status(200).json({ success: true, alreadyProcessed: true });
-      }
-    }
-
-    // 2. Catat payment ke Firestore (status: pending_approval)
-    await db.collection('pi_payments').doc(paymentId).set({
-      paymentId,
-      uid:       uid || null,
-      sgtAmount: sgtAmount || 0,
-      type:      'topup_sgt',
-      status:    'pending_approval',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    // 3. Approve ke Pi Platform API
-    const response = await fetch(
+    const piResp = await fetch(
       `https://api.minepi.com/v2/payments/${paymentId}/approve`,
       {
         method: 'POST',
@@ -66,38 +38,43 @@ export default async function handler(req, res) {
       }
     );
 
-    const data = await response.json();
+    const piData = await piResp.json();
 
-    if (!response.ok) {
-      // Update status gagal di Firestore
-      await db.collection('pi_payments').doc(paymentId).update({
-        status:    'approval_failed',
-        error:     JSON.stringify(data),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-      console.error(`[approve] GAGAL approve ${paymentId}:`, data);
-      return res.status(400).json({ error: 'Pi approval failed', detail: data });
+    if (!piResp.ok) {
+      console.error(`[approve] Pi API gagal untuk ${paymentId}:`, piData);
+      // Catat kegagalan ke Firestore di background
+      saveToFirestore(paymentId, uid, sgtAmount, 'approval_failed', JSON.stringify(piData));
+      return res.status(400).json({ error: 'Pi approval failed', detail: piData });
     }
 
-    // 4. Update status berhasil di-approve
-    await db.collection('pi_payments').doc(paymentId).update({
-      status:    'approved',
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    // ✅ Pi approve berhasil — langsung kirim response agar SDK tidak timeout
+    res.status(200).json({ success: true, ...piData });
 
-    console.log(`[approve] ✅ Payment ${paymentId} approved untuk uid=${uid}`);
-    return res.status(200).json({ success: true, ...data });
+    // Firestore jalan di background SETELAH response sudah dikirim ke SDK
+    saveToFirestore(paymentId, uid, sgtAmount, 'approved', null);
 
   } catch (err) {
     console.error('[approve] ERROR:', err.message);
-    // Coba update Firestore kalau bisa
-    try {
-      await db.collection('pi_payments').doc(paymentId).update({
-        status: 'approval_error',
-        error:  err.message,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-    } catch (_) {}
+    saveToFirestore(paymentId, uid, sgtAmount, 'approval_error', err.message);
     return res.status(500).json({ error: err.message });
   }
+}
+
+// Background: tulis ke Firestore tanpa await, tidak memblokir response
+function saveToFirestore(paymentId, uid, sgtAmount, status, errorMsg) {
+  const db = admin.firestore();
+  const data = {
+    paymentId,
+    uid:       uid || null,
+    sgtAmount: sgtAmount || 0,
+    type:      'topup_sgt',
+    status,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+  if (errorMsg) data.error = errorMsg;
+
+  db.collection('pi_payments').doc(paymentId)
+    .set({ ...data, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })
+    .then(() => console.log(`[approve] ✅ Firestore saved: ${paymentId} → ${status}`))
+    .catch(e => console.error(`[approve] Firestore error:`, e.message));
 }
