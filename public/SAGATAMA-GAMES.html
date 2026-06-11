@@ -7,6 +7,19 @@
   <meta name="description" content="Sagatama Games — Kumpulan game seru dengan token SGT. Main, menang, kumpulkan SGT!">
   <meta name="theme-color" content="#030711">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%236c2bff'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='white' font-size='14' font-family='monospace' font-weight='900'%3ESG%3C/text%3E%3C/svg%3E">
+  <script>
+    // Load Pi SDK lalu init
+    (function() {
+      var s = document.createElement('script');
+      s.src = 'https://sdk.minepi.com/pi-sdk.js';
+      s.onload = function() {
+        if (typeof Pi !== 'undefined') {
+          Pi.init({ version: "2.0", sandbox: true });
+        }
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <style>
@@ -1558,8 +1571,21 @@ async function piAuthAndLogin() {
   if (loginStatus) loginStatus.textContent = 'Menghubungkan ke Pi Network...';
 
   try {
+    // Tunggu Pi SDK siap maksimal 5 detik
     if (typeof window.Pi === 'undefined') {
-      throw new Error('Pi SDK tidak tersedia. Buka di Pi Browser.');
+      await new Promise((resolve, reject) => {
+        let tries = 0;
+        const check = setInterval(() => {
+          tries++;
+          if (typeof window.Pi !== 'undefined') {
+            clearInterval(check);
+            resolve();
+          } else if (tries > 50) {
+            clearInterval(check);
+            reject(new Error('Pi SDK tidak tersedia. Buka di Pi Browser.'));
+          }
+        }, 100);
+      });
     }
 
     // 1. Autentikasi Pi Network — minta username + payments
@@ -1736,7 +1762,7 @@ async function onIncompletePaymentFound(payment) {
   // Coba complete atau cancel payment yang belum selesai
   try {
     // Laporkan ke backend untuk diselesaikan
-    await fetch('https://sagatama-ecosystem.web.app/api/pi-payment/incomplete', {
+    await fetch('https://sagatama-games.vercel.app/api/pi-payment/incomplete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paymentId: payment.identifier })
@@ -1773,7 +1799,7 @@ async function piTopUpSGT(piAmount) {
       onReadyForServerApproval: async function(paymentId) {
         try {
           // Kirim ke backend untuk di-approve di Pi Platform
-          await fetch('https://sagatama-ecosystem.web.app/api/pi-payment/approve', {
+          await fetch('https://sagatama-games.vercel.app/api/pi-payment/approve', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ paymentId, uid: fbUid, sgtAmount })
@@ -1783,7 +1809,7 @@ async function piTopUpSGT(piAmount) {
       // Callback saat pembayaran selesai di blockchain
       onReadyForServerCompletion: async function(paymentId, txid) {
         try {
-          const resp = await fetch('https://sagatama-games.vercel.app/api/pi-auth', {
+          const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ paymentId, txid, uid: fbUid, sgtAmount })
