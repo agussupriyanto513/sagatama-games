@@ -1,0 +1,14 @@
+# Environment variables — JANGAN PERNAH di-commit!
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# Vercel
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db

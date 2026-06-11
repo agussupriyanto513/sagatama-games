@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sagatama Ecosystem — Dashboard Central</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root {
+  --eco:      #6366f1;
+  --eco-lt:   #a5b4fc;
+  --eco-dk:   #3730a3;
+  --mart:     #10b981;
+  --mart-lt:  #6ee7b7;
+  --pend:     #f59e0b;
+  --pend-lt:  #fcd34d;
+  --yay:      #8b5cf6;
+  --yay-lt:   #c4b5fd;
+  --red:      #ef4444;
+  --bg:       #09090f;
+  --bg2:      #0f0f18;
+  --bg3:      #15151f;
+  --bg4:      #1a1a28;
+  --border:   rgba(99,102,241,0.15);
+  --text:     #e2e2f0;
+  --muted:    #6b6b85;
+  --gold:     #d4a017;
+  --gold-lt:  #fbbf24;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
+
+/* ── LAYOUT ── */
+.shell{display:flex;height:100vh;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:240px;min-width:240px;background:var(--bg2);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  padding:0;overflow-y:auto;
+  position:relative;
+}
+.sidebar::before{
+  content:'';position:absolute;top:0;right:0;bottom:0;width:1px;
+  background:linear-gradient(to bottom,transparent,rgba(99,102,241,0.4),transparent);
+}
+.sidebar-logo{
+  padding:24px 20px 20px;
+  border-bottom:1px solid var(--border);
+}
+.sidebar-logo .eco-name{
+  font-family:'Cinzel',serif;font-size:0.85em;font-weight:900;
+  background:linear-gradient(135deg,var(--eco-lt),#fff);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  line-height:1.2;
+}
+.sidebar-logo .eco-sub{font-size:0.65em;color:var(--muted);margin-top:2px;letter-spacing:0.5px;}
+.eco-version{
+  display:inline-flex;align-items:center;gap:4px;
+  background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);
+  border-radius:20px;padding:2px 8px;font-size:0.6em;color:var(--eco-lt);
+  margin-top:8px;font-weight:700;
+}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--mart);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+.sidebar-user{
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.user-avatar{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--eco-dk),var(--eco));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;font-size:0.8em;font-weight:700;color:#fff;
+  flex-shrink:0;
+}
+.user-name{font-size:0.82em;font-weight:600;color:var(--text);}
+.user-role{font-size:0.68em;color:var(--muted);}
+
+.nav-section{
+  padding:16px 20px 6px;
+  font-size:0.62em;font-weight:700;color:var(--muted);
+  letter-spacing:1.5px;text-transform:uppercase;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 20px;font-size:0.82em;font-weight:500;
+  color:var(--muted);cursor:pointer;
+  border-left:2px solid transparent;
+  transition:all 0.15s;
+}
+.nav-item:hover{color:var(--text);background:rgba(99,102,241,0.06);}
+.nav-item.active{color:var(--eco-lt);border-left-color:var(--eco);background:rgba(99,102,241,0.1);}
+.nav-item i{width:16px;text-align:center;font-size:0.9em;}
+
+/* Portal nav items */
+.nav-item.mart-nav:hover,.nav-item.mart-nav.active{color:var(--mart-lt);border-left-color:var(--mart);background:rgba(16,185,129,0.08);}
+.nav-item.pend-nav:hover,.nav-item.pend-nav.active{color:var(--pend-lt);border-left-color:var(--pend);background:rgba(245,158,11,0.08);}
+.nav-item.yay-nav:hover,.nav-item.yay-nav.active{color:var(--yay-lt);border-left-color:var(--yay);background:rgba(139,92,246,0.08);}
+
+.sidebar-footer{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);}
+.btn-logout{
+  width:100%;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);
+  border-radius:10px;padding:9px;font-size:0.78em;color:#fca5a5;
+  cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all 0.2s;
+}
+.btn-logout:hover{background:rgba(239,68,68,0.2);}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{
+  height:56px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;flex-shrink:0;
+}
+.topbar-title{font-family:'Playfair Display',serif;font-size:1.1em;font-weight:700;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.topbar-badge{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);
+  border-radius:20px;padding:5px 12px;font-size:0.72em;color:var(--eco-lt);font-weight:600;
+}
+.notif-btn{
+  position:relative;background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;padding:8px 12px;color:var(--muted);cursor:pointer;
+  font-size:0.85em;transition:all 0.2s;
+}
+.notif-btn:hover{color:var(--text);border-color:rgba(99,102,241,0.3);}
+.notif-badge{
+  position:absolute;top:-4px;right:-4px;
+  background:var(--red);color:#fff;border-radius:50%;
+  width:16px;height:16px;font-size:0.55em;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.btn-sync{
+  background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);
+  border-radius:10px;padding:7px 14px;color:var(--mart-lt);
+  font-size:0.75em;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;
+  display:flex;align-items:center;gap:6px;transition:all 0.2s;
+}
+.btn-sync:hover{background:rgba(16,185,129,0.18);}
+
+.content{flex:1;overflow-y:auto;padding:28px;}
+
+/* ── PAGES ── */
+.page{display:none;}
+.page.active{display:block;animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── STATS GRID ── */
+.stats-grid{display:grid;gap:16px;margin-bottom:24px;}
+.g4{grid-template-columns:repeat(4,1fr);}
+.g3{grid-template-columns:repeat(3,1fr);}
+.g2{grid-template-columns:repeat(2,1fr);}
+
+.stat-card{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:20px;position:relative;overflow:hidden;
+  transition:transform 0.2s;
+}
+.stat-card:hover{transform:translateY(-2px);}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.stat-card.eco::before{background:linear-gradient(90deg,var(--eco),var(--eco-lt));}
+.stat-card.mart::before{background:linear-gradient(90deg,var(--mart),var(--mart-lt));}
+.stat-card.pend::before{background:linear-gradient(90deg,var(--pend),var(--pend-lt));}
+.stat-card.yay::before{background:linear-gradient(90deg,var(--yay),var(--yay-lt));}
+
+.stat-icon{
+  width:38px;height:38px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1em;margin-bottom:12px;
+}
+.eco .stat-icon{background:rgba(99,102,241,0.15);color:var(--eco-lt);}
+.mart .stat-icon{background:rgba(16,185,129,0.15);color:var(--mart-lt);}
+.pend .stat-icon{background:rgba(245,158,11,0.15);color:var(--pend-lt);}
+.yay .stat-icon{background:rgba(139,92,246,0.15);color:var(--yay-lt);}
+
+.stat-num{font-family:'Playfair Display',serif;font-size:1.8em;font-weight:700;line-height:1;}
+.eco .stat-num{color:var(--eco-lt);}
+.mart .stat-num{color:var(--mart-lt);}
+.pend .stat-num{color:var(--pend-lt);}
+.yay .stat-num{color:var(--yay-lt);}
+.stat-lbl{font-size:0.72em;color:var(--muted);margin-top:6px;font-weight:500;}
+.stat-src{font-size:0.62em;color:var(--muted);margin-top:4px;opacity:0.7;}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:22px;}
+.card-title{
+  font-family:'Playfair Display',serif;font-size:1em;font-weight:700;
+  margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;
+}
+.card-title span{font-family:'DM Sans',sans-serif;font-size:0.7em;color:var(--muted);font-weight:400;}
+
+/* ── PORTAL STATUS CARDS ── */
+.portal-status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
+.portal-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:22px;position:relative;overflow:hidden;
+  transition:all 0.2s;cursor:pointer;text-decoration:none;
+}
+.portal-card:hover{transform:translateY(-3px);border-color:rgba(99,102,241,0.3);}
+.portal-card.mart-card{border-top:3px solid var(--mart);}
+.portal-card.pend-card{border-top:3px solid var(--pend);}
+.portal-card.yay-card{border-top:3px solid var(--yay);}
+
+.portal-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.portal-icon{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:1.2em;
+}
+.mart-card .portal-icon{background:rgba(16,185,129,0.15);color:var(--mart);}
+.pend-card .portal-icon{background:rgba(245,158,11,0.15);color:var(--pend);}
+.yay-card  .portal-icon{background:rgba(139,92,246,0.15);color:var(--yay);}
+
+.portal-status-badge{
+  display:flex;align-items:center;gap:5px;
+  font-size:0.68em;font-weight:700;padding:4px 10px;border-radius:20px;
+}
+.status-live{background:rgba(16,185,129,0.12);color:var(--mart);}
+.status-check{background:rgba(245,158,11,0.12);color:var(--pend);}
+
+.portal-name{font-family:'Playfair Display',serif;font-size:1em;font-weight:700;margin-bottom:4px;}
+.portal-url{font-size:0.68em;color:var(--muted);}
+.portal-stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;
+}
+.portal-stat{background:var(--bg3);border-radius:8px;padding:8px 10px;}
+.portal-stat .val{font-family:'Playfair Display',serif;font-size:1.1em;font-weight:700;}
+.portal-stat .lbl{font-size:0.62em;color:var(--muted);margin-top:2px;}
+.mart-card .portal-stat .val{color:var(--mart-lt);}
+.pend-card .portal-stat .val{color:var(--pend-lt);}
+.yay-card  .portal-stat .val{color:var(--yay-lt);}
+
+/* ── NOTIF LIST ── */
+.notif-item{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:12px;border-radius:10px;margin-bottom:8px;
+  background:var(--bg3);border:1px solid var(--border);
+  transition:all 0.15s;
+}
+.notif-item:hover{border-color:rgba(99,102,241,0.3);}
+.notif-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;
+}
+.notif-item.login .notif-dot{background:var(--mart);}
+.notif-item.register .notif-dot{background:var(--pend);}
+.notif-item.order .notif-dot{background:var(--eco);}
+.notif-item.donasi .notif-dot{background:var(--yay);}
+.notif-title{font-size:0.82em;font-weight:600;}
+.notif-body{font-size:0.75em;color:var(--muted);margin-top:2px;}
+.notif-time{font-size:0.65em;color:var(--muted);margin-top:4px;}
+.notif-read-btn{
+  margin-left:auto;background:none;border:none;color:var(--muted);
+  cursor:pointer;font-size:0.75em;padding:2px 6px;border-radius:5px;
+  transition:color 0.15s;flex-shrink:0;
+}
+.notif-read-btn:hover{color:var(--mart);}
+
+/* ── TABLE ── */
+table{width:100%;border-collapse:collapse;}
+th{font-size:0.68em;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;}
+td{font-size:0.82em;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.03);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(99,102,241,0.04);}
+
+/* ── SECTION TITLE ── */
+.section-title{
+  font-family:'Playfair Display',serif;font-size:1.1em;font-weight:700;
+  margin-bottom:20px;display:flex;align-items:center;gap:10px;
+}
+.section-title .badge{
+  font-family:'DM Sans',sans-serif;font-size:0.6em;padding:3px 10px;
+  border-radius:20px;background:rgba(99,102,241,0.1);color:var(--eco-lt);font-weight:700;
+}
+
+/* ── FIRESTORE RULES PAGE ── */
+.rules-block{
+  background:var(--bg3);border:1px solid var(--border);border-radius:12px;
+  padding:20px;margin-bottom:16px;
+}
+.rules-project{font-size:0.75em;color:var(--eco-lt);font-weight:700;margin-bottom:8px;letter-spacing:1px;}
+.rules-code{
+  background:var(--bg4);border-radius:8px;padding:14px;
+  font-family:'Fira Code',monospace;font-size:0.75em;color:#c9d1d9;
+  line-height:1.6;overflow-x:auto;white-space:pre;
+}
+.copy-btn{
+  background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);
+  border-radius:8px;padding:6px 14px;font-size:0.72em;color:var(--eco-lt);
+  cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;
+  display:inline-flex;align-items:center;gap:6px;margin-top:10px;transition:all 0.2s;
+}
+.copy-btn:hover{background:rgba(99,102,241,0.2);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .g4{grid-template-columns:repeat(2,1fr);}
+  .portal-status-grid{grid-template-columns:1fr;}
+  .sidebar{width:200px;min-width:200px;}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="eco-name">SAGATAMA<br>ECOSYSTEM</div>
+    <div class="eco-sub">Hub Central v1.0</div>
+    <div class="eco-version"><div class="live-dot"></div> 3 Portal Terhubung</div>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="user-avatar" id="sideAvatar">A</div>
+    <div>
+      <div class="user-name" id="sideName">Loading...</div>
+      <div class="user-role" id="sideRole">ecosystem</div>
+    </div>
+  </div>
+
+  <div class="nav-section">Ekosistem</div>
+  <div class="nav-item active" onclick="showPage('beranda')"><i class="fas fa-th-large"></i> Beranda Hub</div>
+  <div class="nav-item" onclick="showPage('analitik')"><i class="fas fa-chart-line"></i> Analitik</div>
+  <div class="nav-item" onclick="showPage('notifikasi')"><i class="fas fa-bell"></i> Notifikasi <span id="notifCount" style="margin-left:auto; background:var(--red); color:#fff; border-radius:10px; padding:1px 6px; font-size:0.75em; display:none">0</span></div>
+  <div class="nav-item" onclick="showPage('pengguna')"><i class="fas fa-users"></i> Pengguna</div>
+
+  <div class="nav-section">Portal</div>
+  <div class="nav-item mart-nav" onclick="window.open('https://sagatama-mart.vercel.app','_blank')"><i class="fas fa-store"></i> Sagatama Mart <i class="fas fa-external-link-alt" style="margin-left:auto; font-size:0.7em; opacity:0.5"></i></div>
+  <div class="nav-item pend-nav" onclick="window.open('https://hidayatulamin.vercel.app','_blank')"><i class="fas fa-mosque"></i> Portal Pendidikan <i class="fas fa-external-link-alt" style="margin-left:auto; font-size:0.7em; opacity:0.5"></i></div>
+  <div class="nav-item yay-nav" onclick="window.open('https://dashboard-sagatama.vercel.app','_blank')"><i class="fas fa-chart-pie"></i> Dashboard Yayasan <i class="fas fa-external-link-alt" style="margin-left:auto; font-size:0.7em; opacity:0.5"></i></div>
+
+  <div class="nav-section">Admin</div>
+  <div class="nav-item" onclick="showPage('rules')"><i class="fas fa-shield-alt"></i> Firestore Rules</div>
+  <div class="nav-item" onclick="showPage('config')"><i class="fas fa-cog"></i> Konfigurasi</div>
+
+  <div class="sidebar-footer">
+    <button class="btn-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="pageTitle">Beranda Hub</div>
+    <div class="topbar-right">
+      <div class="topbar-badge"><div class="live-dot"></div> sagatama-ecosystem</div>
+      <div class="notif-btn" onclick="showPage('notifikasi')">
+        <i class="fas fa-bell"></i>
+        <div class="notif-badge" id="notifBadge" style="display:none">0</div>
+      </div>
+      <button class="btn-sync" onclick="syncAll()"><i class="fas fa-sync" id="syncIcon"></i> Sync Semua</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ BERANDA ══ -->
+    <div class="page active" id="page-beranda">
+      <div class="section-title">
+        Ringkasan Ekosistem <div class="badge" id="lastSyncBadge">Belum disync</div>
+      </div>
+
+      <!-- Stats gabungan -->
+      <div class="stats-grid g4">
+        <div class="stat-card eco">
+          <div class="stat-icon"><i class="fas fa-globe"></i></div>
+          <div class="stat-num" id="statPortal">3</div>
+          <div class="stat-lbl">Portal Aktif</div>
+          <div class="stat-src">sagatama-ecosystem</div>
+        </div>
+        <div class="stat-card mart">
+          <div class="stat-icon"><i class="fas fa-shopping-cart"></i></div>
+          <div class="stat-num" id="statOrders">--</div>
+          <div class="stat-lbl">Total Pesanan</div>
+          <div class="stat-src">portal-sagatama</div>
+        </div>
+        <div class="stat-card pend">
+          <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
+          <div class="stat-num" id="statSantri">--</div>
+          <div class="stat-lbl">Santri Aktif</div>
+          <div class="stat-src">hidayatulamin-e6f22</div>
+        </div>
+        <div class="stat-card yay">
+          <div class="stat-icon"><i class="fas fa-coins"></i></div>
+          <div class="stat-num" id="statSGT">--</div>
+          <div class="stat-lbl">SGT Beredar</div>
+          <div class="stat-src">hidayatulamin-e6f22</div>
+        </div>
+      </div>
+      <div class="stats-grid g4" style="margin-top:-8px;">
+        <div class="stat-card mart">
+          <div class="stat-icon"><i class="fas fa-box"></i></div>
+          <div class="stat-num" id="statProducts">--</div>
+          <div class="stat-lbl">Produk Mart</div>
+          <div class="stat-src">portal-sagatama</div>
+        </div>
+        <div class="stat-card mart">
+          <div class="stat-icon"><i class="fab fa-bitcoin"></i></div>
+          <div class="stat-num" id="statRevPi">-- π</div>
+          <div class="stat-lbl">Revenue Pi</div>
+          <div class="stat-src">portal-sagatama</div>
+        </div>
+        <div class="stat-card pend">
+          <div class="stat-icon"><i class="fas fa-book-open"></i></div>
+          <div class="stat-num" id="statHafalan">--</div>
+          <div class="stat-lbl">Catatan Hafalan</div>
+          <div class="stat-src">hidayatulamin-e6f22</div>
+        </div>
+        <div class="stat-card pend">
+          <div class="stat-icon"><i class="fas fa-hand-holding-heart"></i></div>
+          <div class="stat-num" id="statDonasi">--</div>
+          <div class="stat-lbl">Total Donasi</div>
+          <div class="stat-src">hidayatulamin-e6f22</div>
+        </div>
+      </div>
+
+      <!-- Portal status cards -->
+      <div class="section-title" style="margin-top:8px;">Status Portal <div class="badge">Real-time</div></div>
+      <div class="portal-status-grid">
+        <a href="https://sagatama-mart.vercel.app" target="_blank" class="portal-card mart-card">
+          <div class="portal-card-header">
+            <div class="portal-icon"><i class="fas fa-store"></i></div>
+            <div class="portal-status-badge status-live"><div class="live-dot"></div> Live</div>
+          </div>
+          <div class="portal-name">Sagatama Mart</div>
+          <div class="portal-url">sagatama-mart.vercel.app</div>
+          <div class="portal-stats">
+            <div class="portal-stat"><div class="val" id="pcMartOrders">--</div><div class="lbl">Pesanan</div></div>
+            <div class="portal-stat"><div class="val" id="pcMartProducts">--</div><div class="lbl">Produk</div></div>
+            <div class="portal-stat"><div class="val" id="pcMartRevPi">--</div><div class="lbl">Revenue π</div></div>
+            <div class="portal-stat"><div class="val" id="pcMartUMKM">--</div><div class="lbl">UMKM</div></div>
+          </div>
+        </a>
+
+        <a href="https://hidayatulamin.vercel.app" target="_blank" class="portal-card pend-card">
+          <div class="portal-card-header">
+            <div class="portal-icon"><i class="fas fa-mosque"></i></div>
+            <div class="portal-status-badge status-live"><div class="live-dot"></div> Live</div>
+          </div>
+          <div class="portal-name">Portal Pendidikan</div>
+          <div class="portal-url">hidayatulamin.vercel.app</div>
+          <div class="portal-stats">
+            <div class="portal-stat"><div class="val" id="pcPendSantri">--</div><div class="lbl">Santri</div></div>
+            <div class="portal-stat"><div class="val" id="pcPendUstadz">--</div><div class="lbl">Ustadz</div></div>
+            <div class="portal-stat"><div class="val" id="pcPendSGT">--</div><div class="lbl">SGT</div></div>
+            <div class="portal-stat"><div class="val" id="pcPendDonasi">--</div><div class="lbl">Donasi</div></div>
+          </div>
+        </a>
+
+        <a href="https://dashboard-sagatama.vercel.app" target="_blank" class="portal-card yay-card">
+          <div class="portal-card-header">
+            <div class="portal-icon"><i class="fas fa-chart-pie"></i></div>
+            <div class="portal-status-badge status-live"><div class="live-dot"></div> Live</div>
+          </div>
+          <div class="portal-name">Dashboard Yayasan</div>
+          <div class="portal-url">dashboard-sagatama.vercel.app</div>
+          <div class="portal-stats">
+            <div class="portal-stat"><div class="val">3</div><div class="lbl">Portal</div></div>
+            <div class="portal-stat"><div class="val">2</div><div class="lbl">Firebase</div></div>
+            <div class="portal-stat"><div class="val">Live</div><div class="lbl">Status</div></div>
+            <div class="portal-stat"><div class="val">✓</div><div class="lbl">Auth</div></div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Notif terbaru -->
+      <div class="card">
+        <div class="card-title">Aktivitas Terbaru <span>Live dari ecosystem</span></div>
+        <div id="recentNotifList">
+          <div style="text-align:center; padding:24px; color:var(--muted); font-size:0.85em;"><i class="fas fa-spinner fa-spin"></i> Memuat aktivitas...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANALITIK ══ -->
+    <div class="page" id="page-analitik">
+      <div class="section-title">Analitik Ekosistem <div class="badge">Gabungan 3 Portal</div></div>
+      <div class="stats-grid g3">
+        <div class="card">
+          <div class="card-title">Revenue Total <span>Pi Network</span></div>
+          <div style="font-family:'Playfair Display',serif; font-size:2.5em; color:var(--gold-lt); font-weight:700;" id="anaRevPi">-- π</div>
+          <div style="font-size:0.75em; color:var(--muted); margin-top:6px;">Dari transaksi marketplace</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Donasi Total <span>Semua metode</span></div>
+          <div style="font-family:'Playfair Display',serif; font-size:2.5em; color:var(--yay-lt); font-weight:700;" id="anaDonasiPi">-- π</div>
+          <div style="font-size:0.75em; color:var(--muted); margin-top:6px;" id="anaDonasiRp">+ Rp --</div>
+        </div>
+        <div class="card">
+          <div class="card-title">SGT Ecosystem <span>Total beredar</span></div>
+          <div style="font-family:'Playfair Display',serif; font-size:2.5em; color:var(--eco-lt); font-weight:700;" id="anaSGT">--</div>
+          <div style="font-size:0.75em; color:var(--muted); margin-top:6px;">dari 1.000.000.000 supply</div>
+        </div>
+      </div>
+      <div class="stats-grid g2" style="margin-top:0;">
+        <div class="card">
+          <div class="card-title">Distribusi Pengguna <span>Per portal</span></div>
+          <div id="userDistList" style="display:flex; flex-direction:column; gap:10px;">
+            <div style="color:var(--muted); font-size:0.82em; text-align:center; padding:20px;">Memuat data...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Firebase Projects <span>Status semua project</span></div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="background:var(--bg3); border-radius:10px; padding:14px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <div class="live-dot"></div>
+                <div style="font-size:0.8em; font-weight:700; color:var(--mart-lt);">sagatama-ecosystem</div>
+              </div>
+              <div style="font-size:0.72em; color:var(--muted);">Hub Central · Auth + Firestore + Notifikasi</div>
+              <div style="font-size:0.68em; color:var(--eco-lt); margin-top:4px; font-family:monospace;">1:310542599525:web:6fbb102...</div>
+            </div>
+            <div style="background:var(--bg3); border-radius:10px; padding:14px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <div class="live-dot"></div>
+                <div style="font-size:0.8em; font-weight:700; color:var(--mart-lt);">portal-sagatama</div>
+              </div>
+              <div style="font-size:0.72em; color:var(--muted);">Mart + Dashboard Yayasan · Auth + Firestore</div>
+              <div style="font-size:0.68em; color:var(--eco-lt); margin-top:4px; font-family:monospace;">1:372845954028:web:189f2a31...</div>
+            </div>
+            <div style="background:var(--bg3); border-radius:10px; padding:14px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                <div class="live-dot"></div>
+                <div style="font-size:0.8em; font-weight:700; color:var(--mart-lt);">hidayatulamin-e6f22</div>
+              </div>
+              <div style="font-size:0.72em; color:var(--muted);">Portal Pendidikan · Auth + SGT + Donasi</div>
+              <div style="font-size:0.68em; color:var(--eco-lt); margin-top:4px; font-family:monospace;">1:80743607267:web:f5f94165...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ NOTIFIKASI ══ -->
+    <div class="page" id="page-notifikasi">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <div class="section-title" style="margin:0;">Notifikasi Ekosistem <div class="badge">Live</div></div>
+        <button class="copy-btn" onclick="markAllRead()"><i class="fas fa-check-double"></i> Tandai Semua Dibaca</button>
+      </div>
+      <div id="allNotifList">
+        <div style="text-align:center; padding:40px; color:var(--muted);">
+          <i class="fas fa-bell" style="font-size:2em; margin-bottom:12px; opacity:0.3; display:block;"></i>
+          Belum ada notifikasi
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PENGGUNA ══ -->
+    <div class="page" id="page-pengguna">
+      <div class="section-title">Manajemen Pengguna <div class="badge">sagatama-ecosystem</div></div>
+      <div class="card">
+        <div class="card-title">Daftar Pengguna Ecosystem <span>Semua role</span></div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>#</th><th>Nama</th><th>Email</th><th>Role</th><th>Portal</th><th>SGT</th><th>Bergabung</th></tr></thead>
+            <tbody id="userTable"><tr><td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">Memuat data pengguna...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FIRESTORE RULES ══ -->
+    <div class="page" id="page-rules">
+      <div class="section-title">Firestore Security Rules <div class="badge">3 Project</div></div>
+      <p style="font-size:0.82em; color:var(--muted); margin-bottom:20px;">Pasang rules ini di Firebase Console → Firestore → Rules untuk masing-masing project.</p>
+
+      <div class="rules-block">
+        <div class="rules-project">📌 PROJECT: sagatama-ecosystem</div>
+        <pre class="rules-code" id="rulesEco">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() { return request.auth != null; }
+
+    // Ecosystem users — hub SSO
+    match /users/{uid} {
+      allow read, write: if isAuth();
+    }
+    // Notifikasi lintas portal
+    match /notifications/{id} {
+      allow read, write: if isAuth();
+    }
+    // Statistik agregat
+    match /ecosystem_stats/{id} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+  }
+}</pre>
+        <button class="copy-btn" onclick="copyRules('rulesEco')"><i class="fas fa-copy"></i> Copy Rules</button>
+      </div>
+
+      <div class="rules-block">
+        <div class="rules-project">📌 PROJECT: portal-sagatama (Mart + Dashboard)</div>
+        <pre class="rules-code" id="rulesMart">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() { return request.auth != null; }
+
+    match /orders/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAuth();
+    }
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+    match /umkm/{id} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+    match /ecosystem_sync/{id} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+    match /{document=**} {
+      allow read, write: if isAuth();
+    }
+  }
+}</pre>
+        <button class="copy-btn" onclick="copyRules('rulesMart')"><i class="fas fa-copy"></i> Copy Rules</button>
+      </div>
+
+      <div class="rules-block">
+        <div class="rules-project">📌 PROJECT: hidayatulamin-e6f22 (Pendidikan + SGT)</div>
+        <pre class="rules-code" id="rulesPend">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() { return request.auth != null; }
+    function isRole(role) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    match /users/{uid} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+    match /sgt_transactions/{id} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isRole('admin');
+    }
+    match /sgt_config/{id} {
+      allow read: if isAuth();
+      allow write: if isRole('admin');
+    }
+    match /donasi/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if isRole('admin');
+    }
+    match /hafalan/{id} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+    match /{document=**} {
+      allow read, write: if isAuth();
+    }
+  }
+}</pre>
+        <button class="copy-btn" onclick="copyRules('rulesPend')"><i class="fas fa-copy"></i> Copy Rules</button>
+      </div>
+    </div>
+
+    <!-- ══ KONFIGURASI ══ -->
+    <div class="page" id="page-config">
+      <div class="section-title">Konfigurasi Ekosistem <div class="badge">3 Firebase Projects</div></div>
+      <div class="stats-grid g3">
+        <div class="rules-block">
+          <div class="rules-project">🟢 sagatama-ecosystem (Hub)</div>
+          <div style="font-size:0.78em; line-height:1.8; color:var(--text);">
+            <div><span style="color:var(--muted)">projectId:</span> sagatama-ecosystem</div>
+            <div><span style="color:var(--muted)">senderId:</span> 310542599525</div>
+            <div><span style="color:var(--muted)">Fungsi:</span> SSO + Notif + Stats</div>
+          </div>
+        </div>
+        <div class="rules-block">
+          <div class="rules-project">🟢 portal-sagatama (Mart)</div>
+          <div style="font-size:0.78em; line-height:1.8; color:var(--text);">
+            <div><span style="color:var(--muted)">projectId:</span> portal-sagatama</div>
+            <div><span style="color:var(--muted)">senderId:</span> 372845954028</div>
+            <div><span style="color:var(--muted)">Fungsi:</span> Mart + Dashboard</div>
+          </div>
+        </div>
+        <div class="rules-block">
+          <div class="rules-project">🟢 hidayatulamin-e6f22 (Pendidikan)</div>
+          <div style="font-size:0.78em; line-height:1.8; color:var(--text);">
+            <div><span style="color:var(--muted)">projectId:</span> hidayatulamin-e6f22</div>
+            <div><span style="color:var(--muted)">senderId:</span> 80743607267</div>
+            <div><span style="color:var(--muted)">Fungsi:</span> Santri + SGT + Donasi</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Authorized Domains — Perlu didaftarkan di semua project</div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+          <div style="background:var(--bg3); border-radius:10px; padding:14px;">
+            <div style="font-size:0.7em; color:var(--eco-lt); font-weight:700; margin-bottom:8px;">WAJIB DI SEMUA PROJECT</div>
+            <div style="font-size:0.8em; line-height:2; font-family:monospace; color:var(--text);">
+              localhost<br>127.0.0.1<br>sagatama-mart.vercel.app<br>hidayatulamin.vercel.app<br>dashboard-sagatama.vercel.app
+            </div>
+          </div>
+          <div style="background:var(--bg3); border-radius:10px; padding:14px;">
+            <div style="font-size:0.7em; color:var(--pend-lt); font-weight:700; margin-bottom:8px;">CARA DAFTARKAN</div>
+            <div style="font-size:0.78em; line-height:1.8; color:var(--muted);">
+              Firebase Console<br>→ Authentication<br>→ Settings<br>→ Authorized domains<br>→ Add domain
+            </div>
+          </div>
+          <div style="background:var(--bg3); border-radius:10px; padding:14px;">
+            <div style="font-size:0.7em; color:var(--mart-lt); font-weight:700; margin-bottom:8px;">STATUS</div>
+            <div style="font-size:0.78em; line-height:1.8;">
+              <span style="color:var(--mart)">✓</span> portal-sagatama<br>
+              <span style="color:var(--mart)">✓</span> hidayatulamin-e6f22<br>
+              <span style="color:var(--pend)">⚠</span> sagatama-ecosystem<br>
+              <span style="font-size:0.85em; color:var(--muted)">(perlu didaftarkan)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="ecosystem-hub.js"></script>
+<script>
+// ── PAGE TITLES ──
+const PAGE_TITLES = {
+  beranda:'Beranda Hub', analitik:'Analitik Ekosistem',
+  notifikasi:'Notifikasi', pengguna:'Manajemen Pengguna',
+  rules:'Firestore Rules', config:'Konfigurasi'
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.trim().toLowerCase().startsWith(PAGE_TITLES[name]?.split(' ')[0].toLowerCase())) {
+      n.classList.add('active');
+    }
+  });
+  document.getElementById('pageTitle').textContent = PAGE_TITLES[name] || name;
+  if (name === 'analitik')    loadAnalitik();
+  if (name === 'pengguna')    loadPengguna();
+  if (name === 'notifikasi')  renderNotif(EcoHub.getNotif(), 'allNotifList');
+}
+
+// ── INIT ──
+EcoHub.init().then(function(ok) {
+  if (!ok) { window.location.href = 'ecosystem-login.html'; return; }
+
+  const token = EcoHub.getSession();
+  if (!token) { window.location.href = 'ecosystem-login.html'; return; }
+
+  // Set user info
+  document.getElementById('sideName').textContent  = token.name;
+  document.getElementById('sideRole').textContent  = token.role;
+  document.getElementById('sideAvatar').textContent = token.name[0].toUpperCase();
+
+  // Listen notif
+  EcoHub.listenNotif(function(notifs) {
+    const unread = notifs.filter(n => !n.read).length;
+    const badge  = document.getElementById('notifBadge');
+    const count  = document.getElementById('notifCount');
+    if (unread > 0) {
+      badge.textContent = unread; badge.style.display = 'flex';
+      count.textContent = unread; count.style.display = 'inline';
+    } else {
+      badge.style.display = 'none'; count.style.display = 'none';
+    }
+    renderNotif(notifs, 'recentNotifList', 5);
+  });
+
+  // Auto sync saat load
+  syncAll();
+});
+
+// ── SYNC ALL ──
+async function syncAll() {
+  const icon = document.getElementById('syncIcon');
+  icon.classList.add('fa-spin');
+  const stats = await EcoHub.getStats(true);
+  icon.classList.remove('fa-spin');
+
+  if (!stats) return;
+
+  // Update beranda stats
+  const s = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  const fmt = EcoHub.fmt;
+
+  s('statOrders',   stats.mart?.orders || '--');
+  s('statSantri',   stats.pendidikan?.santri || '--');
+  s('statSGT',      stats.pendidikan?.sgt ? fmt.sgt(stats.pendidikan.sgt) : '--');
+  s('statProducts', stats.mart?.products || '--');
+  s('statRevPi',    stats.mart?.revPi ? fmt.pi(stats.mart.revPi) : '-- π');
+  s('statHafalan',  stats.pendidikan?.hafalan || '--');
+  s('statDonasi',   stats.pendidikan?.donasi || '--');
+
+  // Portal cards
+  s('pcMartOrders',   stats.mart?.orders || '--');
+  s('pcMartProducts', stats.mart?.products || '--');
+  s('pcMartRevPi',    stats.mart?.revPi ? parseFloat(stats.mart.revPi).toFixed(1)+' π' : '--');
+  s('pcMartUMKM',     stats.mart?.umkm || '--');
+  s('pcPendSantri',   stats.pendidikan?.santri || '--');
+  s('pcPendUstadz',   stats.pendidikan?.ustadz || '--');
+  s('pcPendSGT',      stats.pendidikan?.sgt ? fmt.sgt(stats.pendidikan.sgt) : '--');
+  s('pcPendDonasi',   stats.pendidikan?.donasi || '--');
+
+  // Analitik
+  s('anaRevPi',    stats.mart?.revPi ? fmt.pi(stats.mart.revPi) : '-- π');
+  s('anaDonasiPi', stats.yayasan?.donasiPi ? fmt.pi(stats.yayasan.donasiPi) : '-- π');
+  s('anaDonasiRp', '+ ' + fmt.rupiah(stats.yayasan?.donasi || 0));
+  s('anaSGT',      fmt.sgt(stats.pendidikan?.sgt || 0));
+
+  // Sync badge
+  const now = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+  s('lastSyncBadge', '✓ Sync ' + now);
+
+  // Simpan ke ecosystem Firestore
+  try {
+    await EcoHub.db.ecosystem.collection('ecosystem_stats').doc('latest').set({
+      mart: stats.mart, pendidikan: stats.pendidikan, yayasan: stats.yayasan,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    await EcoHub.pushNotif('sync', 'Sync Ekosistem', 'Data semua portal diperbarui', { time: new Date().toISOString() });
+  } catch(e) {}
+}
+
+// ── NOTIF RENDER ──
+function renderNotif(notifs, containerId, limit) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const list = limit ? notifs.slice(0, limit) : notifs;
+  if (!list || list.length === 0) {
+    el.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:0.82em;"><i class="fas fa-bell-slash" style="margin-right:6px"></i>Belum ada notifikasi</div>';
+    return;
+  }
+  const typeIcon = { login:'fas fa-sign-in-alt', register:'fas fa-user-plus', order:'fas fa-shopping-cart', donasi:'fas fa-heart', sync:'fas fa-sync', info:'fas fa-info-circle' };
+  el.innerHTML = list.map(n => `
+    <div class="notif-item ${n.type||'info'}">
+      <div class="notif-dot"></div>
+      <div style="flex:1">
+        <div class="notif-title"><i class="${typeIcon[n.type]||'fas fa-bell'}" style="margin-right:6px; opacity:0.7"></i>${n.title||'Notifikasi'}</div>
+        <div class="notif-body">${n.body||''}</div>
+        <div class="notif-time">${n.createdAt ? new Date(n.createdAt.seconds ? n.createdAt.seconds*1000 : n.createdAt).toLocaleString('id-ID') : 'Baru saja'}</div>
+      </div>
+      ${!n.read ? `<button class="notif-read-btn" onclick="EcoHub.markRead('${n.id}')"><i class="fas fa-check"></i></button>` : '<span style="font-size:0.65em; color:var(--muted)">✓</span>'}
+    </div>`).join('');
+}
+
+// ── ANALITIK ──
+function loadAnalitik() {
+  const stats = EcoHub.getNotif ? {} : {};
+  const el = document.getElementById('userDistList');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
+      <div style="width:10px; height:10px; border-radius:50%; background:var(--mart); flex-shrink:0;"></div>
+      <div style="flex:1; font-size:0.82em;">Sagatama Mart</div>
+      <div style="font-size:0.82em; font-weight:700; color:var(--mart-lt);" id="adMartOrders">-- pesanan</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
+      <div style="width:10px; height:10px; border-radius:50%; background:var(--pend); flex-shrink:0;"></div>
+      <div style="flex:1; font-size:0.82em;">Portal Pendidikan</div>
+      <div style="font-size:0.82em; font-weight:700; color:var(--pend-lt);" id="adPendSantri">-- santri</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px; padding:10px 0;">
+      <div style="width:10px; height:10px; border-radius:50%; background:var(--yay); flex-shrink:0;"></div>
+      <div style="flex:1; font-size:0.82em;">Dashboard Yayasan</div>
+      <div style="font-size:0.82em; font-weight:700; color:var(--yay-lt);">3 portal terhubung</div>
+    </div>`;
+
+  // Update dari cache
+  EcoHub.getLatestStats().then(function(s) {
+    if (!s) return;
+    const set = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+    set('adMartOrders', (s.mart?.orders || '--') + ' pesanan');
+    set('adPendSantri', (s.pendidikan?.santri || '--') + ' santri');
+  });
+}
+
+// ── PENGGUNA ──
+function loadPengguna() {
+  EcoHub.db.ecosystem.collection('users').orderBy('createdAt','desc').limit(50).get()
+    .then(function(snap) {
+      const rows = snap.docs.map(function(d, i) {
+        var u = d.data();
+        const roleColor = { admin:'var(--eco-lt)', ustadz:'var(--pend-lt)', santri:'var(--mart-lt)', wali:'var(--yay-lt)', user:'var(--muted)' };
+        return `<tr>
+          <td style="color:var(--muted)">${i+1}</td>
+          <td style="font-weight:600">${u.name||u.namaLengkap||'-'}</td>
+          <td style="color:var(--muted); font-size:0.78em">${u.email||'-'}</td>
+          <td><span style="color:${roleColor[u.role]||'var(--muted)'}; font-weight:700; font-size:0.8em">${u.role||'user'}</span></td>
+          <td style="font-size:0.75em; color:var(--muted)">${(u.portals||[]).join(', ')||'ecosystem'}</td>
+          <td style="color:var(--gold-lt)">${(u.sgt_balance||0).toLocaleString('id-ID')}</td>
+          <td style="color:var(--muted); font-size:0.75em">${u.createdAt ? new Date(u.createdAt.seconds*1000).toLocaleDateString('id-ID') : '-'}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('userTable').innerHTML = rows || '<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">Belum ada pengguna terdaftar</td></tr>';
+    })
+    .catch(function() {
+      document.getElementById('userTable').innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">Gagal memuat — cek Firestore Rules</td></tr>';
+    });
+}
+
+// ── MARK ALL READ ──
+async function markAllRead() {
+  const notifs = EcoHub.getNotif();
+  await Promise.all(notifs.filter(n => !n.read).map(n => EcoHub.markRead(n.id)));
+  EcoHub.toast('Semua notifikasi ditandai dibaca', 'success');
+}
+
+// ── COPY RULES ──
+function copyRules(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    EcoHub.toast('Rules berhasil dicopy!', 'success');
+  });
+}
+
+// ── LOGOUT ──
+function doLogout() {
+  if (!confirm('Keluar dari Sagatama Ecosystem?')) return;
+  try { EcoHub.auth.signOut(); } catch(e) {}
+  localStorage.clear();
+  window.location.href = 'ecosystem-login.html';
+}
+</script>
+</body>
+</html>

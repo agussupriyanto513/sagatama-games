@@ -1,0 +1,11 @@
+{
+  "name": "sagatama-ecosystem-games",
+  "version": "1.0.0",
+  "description": "Sagatama Games — Pi Network Ecosystem",
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sagatama Ecosystem — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root {
+  --eco:     #6366f1;
+  --eco-lt:  #a5b4fc;
+  --eco-dk:  #3730a3;
+  --mart:    #10b981;
+  --pend:    #f59e0b;
+  --yay:     #8b5cf6;
+  --bg:      #0a0a0f;
+  --bg2:     #111118;
+  --bg3:     #16161f;
+  --border:  rgba(99,102,241,0.2);
+  --text:    #e2e2f0;
+  --muted:   #6b6b80;
+  --gold:    #d4a017;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── ANIMATED BG ── */
+.bg-grid {
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridMove 20s linear infinite;
+}
+@keyframes gridMove { to { background-position: 40px 40px; } }
+
+.orb {
+  position: fixed; border-radius: 50%; filter: blur(80px);
+  animation: orbFloat 8s ease-in-out infinite alternate;
+  z-index: 0;
+}
+.orb1 { width:400px; height:400px; background:rgba(99,102,241,0.12); top:-100px; left:-100px; animation-delay:0s; }
+.orb2 { width:300px; height:300px; background:rgba(16,185,129,0.08); bottom:-80px; right:-80px; animation-delay:2s; }
+.orb3 { width:200px; height:200px; background:rgba(245,158,11,0.06); top:50%; left:50%; animation-delay:4s; }
+@keyframes orbFloat { from { transform: translate(0,0) scale(1); } to { transform: translate(20px,30px) scale(1.1); } }
+
+/* ── MAIN CARD ── */
+.login-wrap {
+  position: relative; z-index: 10;
+  width: 100%; max-width: 440px;
+  padding: 20px;
+}
+
+.logo-area {
+  text-align: center;
+  margin-bottom: 32px;
+  animation: fadeDown 0.6s ease both;
+}
+
+.eco-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(99,102,241,0.12);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 30px;
+  padding: 6px 16px;
+  font-size: 0.72em; font-weight: 600;
+  color: var(--eco-lt);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.eco-badge .dot { width:6px; height:6px; border-radius:50%; background:var(--eco-lt); animation: blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.logo-title {
+  font-family: 'Cinzel', serif;
+  font-size: 2em; font-weight: 900;
+  background: linear-gradient(135deg, var(--eco-lt), #fff, var(--eco-lt));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.1; margin-bottom: 8px;
+}
+
+.logo-sub {
+  font-size: 0.82em; color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* Portal badges */
+.portal-row {
+  display: flex; justify-content: center; gap: 10px;
+  margin-top: 16px;
+}
+.portal-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 20px;
+  font-size: 0.68em; font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.portal-pill.mart     { background:rgba(16,185,129,0.12); color:var(--mart); border:1px solid rgba(16,185,129,0.2); }
+.portal-pill.pend     { background:rgba(245,158,11,0.12); color:var(--pend); border:1px solid rgba(245,158,11,0.2); }
+.portal-pill.yay      { background:rgba(139,92,246,0.12); color:var(--yay); border:1px solid rgba(139,92,246,0.2); }
+
+/* ── CARD ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 36px;
+  animation: fadeUp 0.6s ease 0.2s both;
+  position: relative; overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.5), transparent);
+}
+
+.card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1em; font-weight: 700;
+  color: #fff; margin-bottom: 6px;
+}
+
+.card-sub {
+  font-size: 0.8em; color: var(--muted);
+  margin-bottom: 28px;
+}
+
+.form-group { margin-bottom: 18px; }
+
+.form-label {
+  display: block;
+  font-size: 0.72em; font-weight: 600;
+  color: var(--eco-lt);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9em; color: var(--text);
+  transition: all 0.2s;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: rgba(99,102,241,0.6);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.form-input::placeholder { color: var(--muted); }
+
+.btn-login {
+  width: 100%;
+  background: linear-gradient(135deg, var(--eco-dk), var(--eco));
+  border: none; border-radius: 14px;
+  padding: 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95em; font-weight: 700;
+  color: #fff; cursor: pointer;
+  transition: all 0.3s;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 8px;
+  position: relative; overflow: hidden;
+}
+
+.btn-login::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  opacity: 0; transition: opacity 0.3s;
+}
+
+.btn-login:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(99,102,241,0.4); }
+.btn-login:hover::after { opacity: 1; }
+.btn-login:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
+
+.err-msg {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 0.8em; color: #fca5a5;
+  margin-top: 14px; display: none;
+  text-align: center;
+}
+
+/* ── PORTAL LINKS ── */
+.portal-links {
+  margin-top: 28px;
+  border-top: 1px solid rgba(99,102,241,0.1);
+  padding-top: 24px;
+}
+
+.portal-links-title {
+  font-size: 0.72em; color: var(--muted);
+  text-align: center; margin-bottom: 14px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+
+.portal-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.portal-link {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--bg3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.portal-link:hover { transform: translateY(-2px); border-color: rgba(99,102,241,0.3); }
+
+.portal-link i { font-size: 1.2em; }
+.portal-link span { font-size: 0.65em; color: var(--muted); font-weight: 600; text-align: center; }
+
+.portal-link.mart i { color: var(--mart); }
+.portal-link.pend i { color: var(--pend); }
+.portal-link.yay  i { color: var(--yay); }
+
+/* ── ECOSYSTEM STATUS ── */
+.eco-status {
+  margin-top: 20px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 0.72em; color: var(--muted);
+}
+.eco-dot { width:6px; height:6px; border-radius:50%; background:var(--mart); animation: blink 1.5s infinite; }
+
+@keyframes fadeDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeUp   { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="login-wrap">
+  <div class="logo-area">
+    <div class="eco-badge"><div class="dot"></div> Sagatama Ecosystem</div>
+    <div class="logo-title">HIDAYATULAMIN<br>SAGATAMA</div>
+    <div class="logo-sub">Ekosistem Digital Terpadu · Single Sign-On</div>
+    <div class="portal-row">
+      <div class="portal-pill mart"><i class="fas fa-store"></i> Mart</div>
+      <div class="portal-pill pend"><i class="fas fa-mosque"></i> Pendidikan</div>
+      <div class="portal-pill yay"><i class="fas fa-building"></i> Yayasan</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Masuk ke Ekosistem</div>
+    <div class="card-sub">Login sekali, akses semua portal Sagatama</div>
+
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" id="loginEmail" class="form-input" placeholder="email@sagatama.id" autofocus>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" id="loginPass" class="form-input" placeholder="••••••••">
+    </div>
+
+    <button class="btn-login" id="btnLogin" onclick="doLogin()">
+      <i class="fas fa-sign-in-alt"></i> Masuk ke Ekosistem
+    </button>
+
+    <div class="err-msg" id="errMsg"></div>
+
+    <div class="portal-links">
+      <div class="portal-links-title">Akses Langsung Portal</div>
+      <div class="portal-grid">
+        <a href="https://sagatama-mart.vercel.app" target="_blank" class="portal-link mart">
+          <i class="fas fa-store"></i>
+          <span>Sagatama<br>Mart</span>
+        </a>
+        <a href="https://hidayatulamin.vercel.app" target="_blank" class="portal-link pend">
+          <i class="fas fa-mosque"></i>
+          <span>Portal<br>Pendidikan</span>
+        </a>
+        <a href="https://dashboard-sagatama.vercel.app" target="_blank" class="portal-link yay">
+          <i class="fas fa-chart-pie"></i>
+          <span>Dashboard<br>Yayasan</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="eco-status">
+      <div class="eco-dot"></div>
+      <span id="ecoStatusText">Menghubungkan ke sagatama-ecosystem...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="ecosystem-hub.js"></script>
+<script>
+const ROLE_REDIRECT = {
+  admin:  'ecosystem-dashboard.html',
+  ustadz: 'https://hidayatulamin.vercel.app/dashboard-ustadz.html',
+  santri: 'https://hidayatulamin.vercel.app/dashboard-santri.html',
+  wali:   'https://hidayatulamin.vercel.app/dashboard-wali.html',
+  user:   'ecosystem-dashboard.html'
+};
+
+EcoHub.init().then(function(ok) {
+  const statusEl = document.getElementById('ecoStatusText');
+  if (ok) {
+    statusEl.textContent = 'sagatama-ecosystem · 3 portal terhubung ✓';
+    // Cek apakah sudah login
+    const token = EcoHub.getSession();
+    if (token) {
+      statusEl.textContent = 'Sesi aktif: ' + token.name + ' · Mengalihkan...';
+      setTimeout(function() {
+        window.location.href = ROLE_REDIRECT[token.role] || 'ecosystem-dashboard.html';
+      }, 1000);
+    }
+  } else {
+    statusEl.textContent = 'Koneksi gagal — cek internet';
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('errMsg');
+  const btn   = document.getElementById('btnLogin');
+
+  errEl.style.display = 'none';
+  if (!email || !pass) {
+    errEl.textContent = 'Email dan password wajib diisi!';
+    errEl.style.display = 'block'; return;
+  }
+
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Masuk...';
+  btn.disabled = true;
+
+  const result = await EcoHub.login(email, pass,
+    function(user, data) {
+      const redirect = ROLE_REDIRECT[data.role] || 'ecosystem-dashboard.html';
+      document.getElementById('ecoStatusText').textContent = 'Login berhasil! Mengalihkan...';
+      setTimeout(function() { window.location.href = redirect; }, 1200);
+    },
+    function(msg) {
+      errEl.textContent = msg;
+      errEl.style.display = 'block';
+      btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Masuk ke Ekosistem';
+      btn.disabled = false;
+    }
+  );
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
