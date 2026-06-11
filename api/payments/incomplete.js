@@ -1,6 +1,6 @@
-// /api/payments/incomplete.js
-// Handle incomplete Pi payment yang belum selesai saat app dibuka
-// Dipanggil oleh Pi SDK callback: onIncompletePaymentFound
+// /api/pi-payment/incomplete.js
+// Menangani payment yang belum selesai (incomplete) saat user buka app
+// Pi SDK memanggil onIncompletePaymentFound → frontend lapor ke sini
 import admin from "firebase-admin";
 
 if (!admin.apps.length) {
@@ -14,6 +14,11 @@ if (!admin.apps.length) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -23,98 +28,69 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'paymentId diperlukan' });
   }
 
+  const db = admin.firestore();
+
   try {
-    const db = admin.firestore();
-
     // 1. Cek status payment di Firestore
-    const payRef  = db.collection('pi_payments').doc(paymentId);
-    const paySnap = await payRef.get();
+    const snap = await db.collection('pi_payments').doc(paymentId).get();
 
-    // 2. Cek status payment di Pi Platform
-    const piRes = await fetch(
-      `https://api.minepi.com/v2/payments/${paymentId}`,
+    if (!snap.exists) {
+      // Payment tidak ada di DB kita → cancel saja di Pi
+      console.log(`[incomplete] Payment ${paymentId} tidak ada di DB → cancel`);
+      await cancelOnPi(paymentId);
+      return res.status(200).json({ action: 'cancelled', reason: 'not_found_in_db' });
+    }
+
+    const payment = snap.data();
+    console.log(`[incomplete] Payment ${paymentId} status di DB: ${payment.status}`);
+
+    // 2. Logika berdasarkan status
+    if (payment.status === 'completed') {
+      // Sudah selesai, tidak perlu tindakan
+      return res.status(200).json({ action: 'none', reason: 'already_completed' });
+    }
+
+    if (payment.status === 'approved') {
+      // Sudah di-approve tapi belum complete → mungkin txid belum masuk
+      // Biarkan saja, user bisa bayar ulang atau tunggu konfirmasi blockchain
+      return res.status(200).json({ action: 'none', reason: 'approved_waiting_tx' });
+    }
+
+    // Status lain (pending_approval, approval_failed, error) → cancel
+    await cancelOnPi(paymentId);
+    await db.collection('pi_payments').doc(paymentId).update({
+      status:    'cancelled_incomplete',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return res.status(200).json({ action: 'cancelled', reason: payment.status });
+
+  } catch (err) {
+    console.error('[incomplete] ERROR:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// Helper: cancel payment di Pi Platform API
+async function cancelOnPi(paymentId) {
+  try {
+    const response = await fetch(
+      `https://api.minepi.com/v2/payments/${paymentId}/cancel`,
       {
+        method: 'POST',
         headers: {
-          'Authorization': `Key ${process.env.PI_API_KEY}`
+          'Authorization': `Key ${process.env.PI_API_KEY}`,
+          'Content-Type':  'application/json'
         }
       }
     );
-
-    if (!piRes.ok) {
-      console.warn(`[incomplete] Tidak bisa fetch payment ${paymentId}`);
-      return res.status(200).json({ action: 'ignored' });
+    const data = await response.json();
+    if (!response.ok) {
+      console.warn(`[incomplete] Cancel Pi gagal untuk ${paymentId}:`, data);
+    } else {
+      console.log(`[incomplete] ✅ Cancel Pi berhasil untuk ${paymentId}`);
     }
-
-    const piPayment = await piRes.json();
-    const { status: piStatus, transaction } = piPayment;
-
-    // 3. Tentukan aksi berdasarkan status Pi
-    if (piStatus?.developer_approved && !piStatus?.developer_completed) {
-      // Sudah di-approve tapi belum complete — lanjutkan complete
-      if (transaction?.txid) {
-        // Sudah ada txid di blockchain, complete sekarang
-        const completeRes = await fetch(
-          `https://api.minepi.com/v2/payments/${paymentId}/complete`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Key ${process.env.PI_API_KEY}`,
-              'Content-Type':  'application/json'
-            },
-            body: JSON.stringify({ txid: transaction.txid })
-          }
-        );
-
-        if (completeRes.ok) {
-          // Tambah SGT jika ada uid dan sgtAmount di Firestore
-          const sgt = parseInt(paySnap.exists ? paySnap.data().sgtAmount : 0) || 0;
-          const uid = paySnap.exists ? paySnap.data().uid : null;
-
-          if (uid && sgt > 0) {
-            const playerRef = db.collection('players').doc(uid);
-            await db.runTransaction(async (t) => {
-              const pSnap = await t.get(playerRef);
-              if (pSnap.exists) {
-                const cur = parseFloat(pSnap.data().sgtBalance) || 0;
-                t.update(playerRef, {
-                  sgtBalance: cur + sgt,
-                  updatedAt:  admin.firestore.FieldValue.serverTimestamp()
-                });
-              }
-            });
-          }
-
-          await payRef.set({
-            status:      'completed',
-            txid:        transaction.txid,
-            completedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt:   admin.firestore.FieldValue.serverTimestamp(),
-            recoveredIncomplete: true
-          }, { merge: true });
-
-          console.log(`[incomplete] Payment ${paymentId} di-recover dan diselesaikan`);
-          return res.status(200).json({ action: 'completed', paymentId });
-        }
-      }
-      // Belum ada txid — cancel saja
-    }
-
-    // 4. Default: cancel payment yang tidak bisa di-recover
-    await fetch(`https://api.minepi.com/v2/payments/${paymentId}/cancel`, {
-      method: 'POST',
-      headers: { 'Authorization': `Key ${process.env.PI_API_KEY}` }
-    });
-
-    await payRef.set({
-      status:      'cancelled_incomplete',
-      updatedAt:   admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    console.log(`[incomplete] Payment ${paymentId} dibatalkan (incomplete)`);
-    return res.status(200).json({ action: 'cancelled', paymentId });
-
-  } catch (err) {
-    console.error('[incomplete]', err.message);
-    return res.status(500).json({ error: err.message });
+  } catch(e) {
+    console.warn(`[incomplete] Exception saat cancel Pi ${paymentId}:`, e.message);
   }
 }
