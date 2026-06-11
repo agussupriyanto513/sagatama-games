@@ -1,7 +1,7 @@
 // /api/payments/approve.js
-// Approve Pi payment + catat ke Firestore sebagai pending
 import admin from "firebase-admin";
 
+// Init Firebase sekali saja di module level (bukan di dalam handler)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -12,21 +12,28 @@ if (!admin.apps.length) {
   });
 }
 
+// Pre-warm Firestore connection
+const db = admin.firestore();
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  // CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { paymentId, uid, sgtAmount } = req.body;
+  if (!paymentId) return res.status(400).json({ error: 'paymentId diperlukan' });
 
-  if (!paymentId) {
-    return res.status(400).json({ error: 'paymentId diperlukan' });
-  }
+  // PENTING: Respond ke Pi SECEPAT mungkin dengan 200
+  // lalu lanjutkan proses di background
+  res.status(200).json({ success: true, paymentId });
 
+  // Lanjut proses approve di background (setelah response dikirim)
   try {
-    // 1. Catat payment ke Firestore dulu (status: pending_approval)
-    //    Ini penting agar pembayaran bisa di-recover jika terjadi crash
-    const db = admin.firestore();
+    // Catat ke Firestore
     await db.collection('pi_payments').doc(paymentId).set({
       paymentId,
       uid:       uid || null,
@@ -37,7 +44,7 @@ export default async function handler(req, res) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // 2. Approve ke Pi Platform API
+    // Approve ke Pi Platform
     const response = await fetch(
       `https://api.minepi.com/v2/payments/${paymentId}/approve`,
       {
@@ -52,26 +59,23 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      // Update status gagal di Firestore
       await db.collection('pi_payments').doc(paymentId).update({
         status:    'approval_failed',
         error:     JSON.stringify(data),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
-      return res.status(400).json({ error: 'Pi approval failed', detail: data });
+      console.error('[approve] Pi approval failed:', data);
+      return;
     }
 
-    // 3. Update status berhasil di-approve
     await db.collection('pi_payments').doc(paymentId).update({
       status:    'approved',
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     console.log(`[approve] Payment ${paymentId} approved for uid=${uid}`);
-    return res.status(200).json(data);
 
   } catch (err) {
-    console.error('[approve]', err.message);
-    return res.status(500).json({ error: err.message });
+    console.error('[approve] Background error:', err.message);
   }
 }
