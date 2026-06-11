@@ -1781,65 +1781,82 @@ async function piTopUpSGT(piAmount) {
   if (!window.walletConnected) {
     toast('Login dulu!', 'red'); return;
   }
+
   const sgtAmount = piAmount * PI_SGT_RATE;
   toast('💳 Membuka Pi Payment...', 'default');
 
   try {
-    const payment = await window.Pi.createPayment({
-      amount: piAmount,
-      memo: `Top-up ${sgtAmount} SGT - Sagatama Games`,
+    await window.Pi.createPayment({
+      amount:   piAmount,
+      memo:     `Top-up ${sgtAmount} SGT - Sagatama Games`,
       metadata: {
-        type: 'topup_sgt',
+        type:      'topup_sgt',
         sgtAmount: sgtAmount,
-        uid: fbUid,
-        username: window.piUsername
+        uid:       fbUid,
+        username:  window.piUsername
       }
     }, {
-      // Callback saat user approve di Pi wallet
-      // PENTING: jangan await di sini — Pi SDK punya timeout pendek
-      // Jalankan fetch di background tanpa menunggu response
-      onReadyForServerApproval: function(paymentId) {
-        fetch('https://sagatama-games.vercel.app/api/pi-payment/approve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ paymentId, uid: fbUid, sgtAmount })
-        }).catch(e => console.warn('Approve error:', e));
-        // Langsung return tanpa await agar Pi SDK tidak timeout
+      // ─────────────────────────────────────────────────────────
+      // PERBAIKAN: gunakan async/await agar Pi SDK tahu server
+      // sudah menerima approve. Tanpa await, Pi SDK timeout/cancel.
+      // ─────────────────────────────────────────────────────────
+      onReadyForServerApproval: async function(paymentId) {
+        try {
+          const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/approve', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ paymentId, uid: fbUid, sgtAmount })
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            console.error('[approve] Server error:', err);
+          } else {
+            console.log('[approve] ✅ Payment approved:', paymentId);
+          }
+        } catch(e) {
+          console.error('[approve] Fetch error:', e.message);
+        }
       },
+
       // Callback saat pembayaran selesai di blockchain
       onReadyForServerCompletion: async function(paymentId, txid) {
         try {
           const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/complete', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentId, txid, uid: fbUid, sgtAmount })
+            body:    JSON.stringify({ paymentId, txid, uid: fbUid, sgtAmount })
           });
           if (resp.ok) {
-            // Backend konfirmasi → update saldo lokal
             window.sgtBalance += sgtAmount;
             window.updSgt && window.updSgt();
             if (window.fbSaveSGT) window.fbSaveSGT(window.sgtBalance, null, 0);
             toast(`🎉 Top-up berhasil! +${sgtAmount} SGT`, 'gold');
             closeTopUp();
           } else {
+            const err = await resp.json().catch(() => ({}));
+            console.error('[complete] Server error:', err);
             toast('⚠️ Verifikasi gagal, hubungi support', 'red');
           }
         } catch(e) {
-          console.error('Complete error:', e);
+          console.error('[complete] Fetch error:', e.message);
           toast('⚠️ Gagal verifikasi, coba lagi', 'red');
         }
       },
+
       onCancel: function(paymentId) {
+        console.log('[payment] Dibatalkan:', paymentId);
         toast('❌ Top-up dibatalkan', 'red');
       },
+
       onError: function(error, payment) {
-        console.error('Payment error:', error);
-        toast('❌ Error pembayaran: ' + error.message, 'red');
+        console.error('[payment] Error:', error, payment);
+        toast('❌ Error: ' + (error?.message || 'Unknown'), 'red');
       }
     });
+
   } catch(e) {
-    console.error('createPayment error:', e);
-    toast('❌ Gagal membuat payment', 'red');
+    console.error('[createPayment] Error:', e);
+    toast('❌ Gagal membuat payment: ' + e.message, 'red');
   }
 }
 window.piTopUpSGT = piTopUpSGT;
