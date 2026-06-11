@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms & Privacy — Sagatama Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d0f1a;
+      --surface: #13162a;
+      --border: #1e2240;
+      --accent: #7c6af7;
+      --accent2: #f7c26a;
+      --text: #e8eaf6;
+      --muted: #7b82b0;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    /* HEADER */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    .logo span { color: var(--accent); }
+
+    /* LANG TOGGLE */
+    .lang-toggle {
+      display: flex;
+      gap: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .lang-btn {
+      padding: 5px 14px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .lang-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      background: var(--surface);
+    }
+
+    .tab-btn {
+      padding: 14px 24px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--accent2);
+      border-bottom-color: var(--accent2);
+    }
+
+    /* LAYOUT */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    /* DOC HEADER */
+    .doc-header {
+      margin-bottom: 40px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .doc-tag {
+      display: inline-block;
+      background: rgba(124,106,247,0.15);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    .doc-header h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+    }
+
+    .doc-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .doc-meta span { display: flex; align-items: center; gap: 6px; }
+
+    /* SECTIONS */
+    .section {
+      margin-bottom: 36px;
+    }
+
+    .section h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--accent2);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section h2::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: var(--accent);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .section p {
+      color: #c5c9e0;
+      margin-bottom: 10px;
+    }
+
+    .section ul {
+      padding-left: 20px;
+      color: #c5c9e0;
+    }
+
+    .section ul li {
+      margin-bottom: 6px;
+    }
+
+    /* CONTACT CARD */
+    .contact-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-top: 12px;
+    }
+
+    .contact-card p {
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    .contact-card strong {
+      color: var(--text);
+    }
+
+    .contact-card a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .contact-card a:hover { text-decoration: underline; }
+
+    /* CONTENT VISIBILITY */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .lang-en, .lang-id { display: none; }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 16px 20px; }
+      .tabs { padding: 0 16px; }
+      .container { padding: 32px 20px 60px; }
+      .doc-header h1 { font-size: 24px; }
+      .tab-btn { padding: 12px 14px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Sagatama<span>Games</span></div>
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('id')">ID</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="setTab('terms')">
+    <span class="lang-en">Terms of Service</span>
+    <span class="lang-id">Syarat Layanan</span>
+  </button>
+  <button class="tab-btn" onclick="setTab('privacy')">
+    <span class="lang-en">Privacy Policy</span>
+    <span class="lang-id">Kebijakan Privasi</span>
+  </button>
+</div>
+
+<div class="container">
+
+  <!-- ==================== TERMS ==================== -->
+  <div id="tab-terms" class="tab-content active">
+
+    <!-- ENGLISH -->
+    <div class="lang-en">
+      <div class="doc-header">
+        <div class="doc-tag">Legal</div>
+        <h1>Terms of Service</h1>
+        <div class="doc-meta">
+          <span>📅 Effective: June 11, 2026</span>
+          <span>🏢 Sagatama Games</span>
+          <span>📍 Asahan, North Sumatra, Indonesia</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>1. Acceptance of Terms</h2>
+        <p>By accessing or using the Sagatama Games application ("App") through the Pi Browser, you agree to be bound by these Terms of Service. If you do not agree, please discontinue use immediately.</p>
+      </div>
+
+      <div class="section">
+        <h2>2. About the App</h2>
+        <p>Sagatama Games is a gaming platform integrated within the Pi Network ecosystem. The App allows users to play games and engage in transactions using Pi cryptocurrency.</p>
+      </div>
+
+      <div class="section">
+        <h2>3. Eligibility</h2>
+        <p>To use this App, you must:</p>
+        <ul>
+          <li>Have a valid Pi Network account</li>
+          <li>Be at least 18 years of age, or have parental/guardian consent</li>
+          <li>Comply with all applicable laws in your jurisdiction</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>4. Pi Network Payments</h2>
+        <p>All transactions within the App are processed using Pi cryptocurrency through the Pi Network payment infrastructure. By making a payment, you acknowledge:</p>
+        <ul>
+          <li>Transactions are subject to Pi Network's terms and conditions</li>
+          <li>Completed transactions may not be reversible</li>
+          <li>Sagatama Games is not responsible for issues arising from the Pi Network infrastructure</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>5. User Conduct</h2>
+        <p>You agree not to:</p>
+        <ul>
+          <li>Cheat, exploit, or manipulate game systems</li>
+          <li>Use bots, scripts, or automation tools</li>
+          <li>Harass, abuse, or harm other users</li>
+          <li>Attempt to hack or reverse-engineer the App</li>
+          <li>Use the App for any illegal or fraudulent purpose</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>6. Intellectual Property</h2>
+        <p>All content, graphics, code, and materials within the App are owned by Sagatama Games and protected by applicable intellectual property laws. Unauthorized reproduction or distribution is prohibited.</p>
+      </div>
+
+      <div class="section">
+        <h2>7. Disclaimer of Warranties</h2>
+        <p>The App is provided "as is" without warranties of any kind. Sagatama Games does not guarantee uninterrupted, error-free service. Use of the App is at your own risk.</p>
+      </div>
+
+      <div class="section">
+        <h2>8. Limitation of Liability</h2>
+        <p>To the fullest extent permitted by law, Sagatama Games shall not be liable for any indirect, incidental, or consequential damages arising from your use of the App or any Pi transactions.</p>
+      </div>
+
+      <div class="section">
+        <h2>9. Changes to Terms</h2>
+        <p>We reserve the right to update these Terms at any time. Continued use of the App after changes constitutes acceptance of the updated Terms.</p>
+      </div>
+
+      <div class="section">
+        <h2>10. Contact Us</h2>
+        <div class="contact-card">
+          <p><strong>Company:</strong> Sagatama Games</p>
+          <p><strong>Email:</strong> <a href="mailto:agussupriyantosaragih@gmail.com">agussupriyantosaragih@gmail.com</a></p>
+          <p><strong>Phone:</strong> <a href="tel:+6285213346061">+62 852-1334-6061</a></p>
+          <p><strong>Address:</strong> Asahan, North Sumatra, Indonesia</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- INDONESIAN -->
+    <div class="lang-id">
+      <div class="doc-header">
+        <div class="doc-tag">Legal</div>
+        <h1>Syarat & Ketentuan Layanan</h1>
+        <div class="doc-meta">
+          <span>📅 Berlaku: 11 Juni 2026</span>
+          <span>🏢 Sagatama Games</span>
+          <span>📍 Asahan, Sumatera Utara, Indonesia</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>1. Penerimaan Syarat</h2>
+        <p>Dengan mengakses atau menggunakan aplikasi Sagatama Games ("Aplikasi") melalui Pi Browser, Anda menyetujui untuk terikat oleh Syarat dan Ketentuan ini. Jika Anda tidak menyetujui, harap hentikan penggunaan segera.</p>
+      </div>
+
+      <div class="section">
+        <h2>2. Tentang Aplikasi</h2>
+        <p>Sagatama Games adalah platform game yang terintegrasi dalam ekosistem Pi Network. Aplikasi ini memungkinkan pengguna untuk bermain game dan melakukan transaksi menggunakan mata uang kripto Pi.</p>
+      </div>
+
+      <div class="section">
+        <h2>3. Kelayakan Pengguna</h2>
+        <p>Untuk menggunakan Aplikasi ini, Anda harus:</p>
+        <ul>
+          <li>Memiliki akun Pi Network yang valid</li>
+          <li>Berusia minimal 18 tahun, atau memiliki izin dari orang tua/wali</li>
+          <li>Mematuhi semua hukum yang berlaku di wilayah hukum Anda</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>4. Pembayaran Pi Network</h2>
+        <p>Semua transaksi dalam Aplikasi diproses menggunakan mata uang kripto Pi melalui infrastruktur pembayaran Pi Network. Dengan melakukan pembayaran, Anda mengakui bahwa:</p>
+        <ul>
+          <li>Transaksi tunduk pada syarat dan ketentuan Pi Network</li>
+          <li>Transaksi yang telah selesai mungkin tidak dapat dibatalkan</li>
+          <li>Sagatama Games tidak bertanggung jawab atas masalah yang timbul dari infrastruktur Pi Network</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>5. Perilaku Pengguna</h2>
+        <p>Anda setuju untuk tidak:</p>
+        <ul>
+          <li>Curang, mengeksploitasi, atau memanipulasi sistem permainan</li>
+          <li>Menggunakan bot, skrip, atau alat otomasi</li>
+          <li>Melecehkan, menyalahgunakan, atau merugikan pengguna lain</li>
+          <li>Mencoba meretas atau merekayasa balik Aplikasi</li>
+          <li>Menggunakan Aplikasi untuk tujuan ilegal atau penipuan</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>6. Kekayaan Intelektual</h2>
+        <p>Semua konten, grafis, kode, dan materi dalam Aplikasi dimiliki oleh Sagatama Games dan dilindungi oleh hukum kekayaan intelektual yang berlaku. Reproduksi atau distribusi tanpa izin dilarang.</p>
+      </div>
+
+      <div class="section">
+        <h2>7. Penolakan Jaminan</h2>
+        <p>Aplikasi disediakan "sebagaimana adanya" tanpa jaminan apapun. Sagatama Games tidak menjamin layanan yang tidak terputus dan bebas kesalahan. Penggunaan Aplikasi adalah risiko Anda sendiri.</p>
+      </div>
+
+      <div class="section">
+        <h2>8. Batasan Tanggung Jawab</h2>
+        <p>Sejauh diizinkan oleh hukum, Sagatama Games tidak bertanggung jawab atas kerugian tidak langsung, insidental, atau konsekuensial yang timbul dari penggunaan Aplikasi atau transaksi Pi Anda.</p>
+      </div>
+
+      <div class="section">
+        <h2>9. Perubahan Syarat</h2>
+        <p>Kami berhak memperbarui Syarat ini kapan saja. Penggunaan Aplikasi yang berkelanjutan setelah perubahan merupakan penerimaan atas Syarat yang diperbarui.</p>
+      </div>
+
+      <div class="section">
+        <h2>10. Hubungi Kami</h2>
+        <div class="contact-card">
+          <p><strong>Perusahaan:</strong> Sagatama Games</p>
+          <p><strong>Email:</strong> <a href="mailto:agussupriyantosaragih@gmail.com">agussupriyantosaragih@gmail.com</a></p>
+          <p><strong>Telepon:</strong> <a href="tel:+6285213346061">+62 852-1334-6061</a></p>
+          <p><strong>Alamat:</strong> Asahan, Sumatera Utara, Indonesia</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PRIVACY ==================== -->
+  <div id="tab-privacy" class="tab-content">
+
+    <!-- ENGLISH -->
+    <div class="lang-en">
+      <div class="doc-header">
+        <div class="doc-tag">Legal</div>
+        <h1>Privacy Policy</h1>
+        <div class="doc-meta">
+          <span>📅 Effective: June 11, 2026</span>
+          <span>🏢 Sagatama Games</span>
+          <span>📍 Asahan, North Sumatra, Indonesia</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>1. Introduction</h2>
+        <p>Sagatama Games ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our App through the Pi Browser.</p>
+      </div>
+
+      <div class="section">
+        <h2>2. Information We Collect</h2>
+        <p>We may collect the following information:</p>
+        <ul>
+          <li><strong>Pi Network Username</strong> — obtained through Pi Network authentication</li>
+          <li><strong>Transaction Data</strong> — payment IDs and transaction history within the App</li>
+          <li><strong>Usage Data</strong> — game activity, scores, and session duration</li>
+          <li><strong>Device Information</strong> — device type, OS version, and browser info</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>3. How We Use Your Information</h2>
+        <p>We use collected data to:</p>
+        <ul>
+          <li>Authenticate your identity via Pi Network</li>
+          <li>Process and verify Pi payments</li>
+          <li>Improve app performance and user experience</li>
+          <li>Detect and prevent fraud or abuse</li>
+          <li>Comply with legal obligations</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>4. Pi Network Integration</h2>
+        <p>Our App integrates with Pi Network's SDK for authentication and payments. When you authenticate or make a payment, certain data is shared with Pi Network according to their own privacy policy. We encourage you to review Pi Network's Privacy Policy at <a href="https://minepi.com/privacy-policy" target="_blank" style="color:var(--accent)">minepi.com</a>.</p>
+      </div>
+
+      <div class="section">
+        <h2>5. Data Sharing</h2>
+        <p>We do not sell, trade, or rent your personal information to third parties. We may share data only:</p>
+        <ul>
+          <li>With Pi Network as required for payment processing</li>
+          <li>When required by law or legal process</li>
+          <li>To protect the rights and safety of Sagatama Games and its users</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>6. Data Retention</h2>
+        <p>We retain your data only as long as necessary to provide our services or as required by law. Transaction records may be retained for a minimum of 1 year for auditing purposes.</p>
+      </div>
+
+      <div class="section">
+        <h2>7. Security</h2>
+        <p>We implement industry-standard security measures to protect your data. However, no method of transmission over the internet is 100% secure. We cannot guarantee absolute security.</p>
+      </div>
+
+      <div class="section">
+        <h2>8. Your Rights</h2>
+        <p>You have the right to:</p>
+        <ul>
+          <li>Access the personal data we hold about you</li>
+          <li>Request correction of inaccurate data</li>
+          <li>Request deletion of your data (where legally permissible)</li>
+          <li>Withdraw consent at any time</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>9. Children's Privacy</h2>
+        <p>Our App is not intended for users under 18 years of age. We do not knowingly collect personal data from minors. If you believe a minor has provided data, please contact us immediately.</p>
+      </div>
+
+      <div class="section">
+        <h2>10. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. We will notify users of significant changes through the App or via email. Continued use of the App constitutes acceptance.</p>
+      </div>
+
+      <div class="section">
+        <h2>11. Contact Us</h2>
+        <div class="contact-card">
+          <p><strong>Company:</strong> Sagatama Games</p>
+          <p><strong>Email:</strong> <a href="mailto:agussupriyantosaragih@gmail.com">agussupriyantosaragih@gmail.com</a></p>
+          <p><strong>Phone:</strong> <a href="tel:+6285213346061">+62 852-1334-6061</a></p>
+          <p><strong>Address:</strong> Asahan, North Sumatra, Indonesia</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- INDONESIAN -->
+    <div class="lang-id">
+      <div class="doc-header">
+        <div class="doc-tag">Legal</div>
+        <h1>Kebijakan Privasi</h1>
+        <div class="doc-meta">
+          <span>📅 Berlaku: 11 Juni 2026</span>
+          <span>🏢 Sagatama Games</span>
+          <span>📍 Asahan, Sumatera Utara, Indonesia</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>1. Pendahuluan</h2>
+        <p>Sagatama Games ("kami") berkomitmen untuk melindungi privasi Anda. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, dan melindungi informasi Anda saat menggunakan Aplikasi kami melalui Pi Browser.</p>
+      </div>
+
+      <div class="section">
+        <h2>2. Informasi yang Kami Kumpulkan</h2>
+        <p>Kami dapat mengumpulkan informasi berikut:</p>
+        <ul>
+          <li><strong>Username Pi Network</strong> — diperoleh melalui autentikasi Pi Network</li>
+          <li><strong>Data Transaksi</strong> — ID pembayaran dan riwayat transaksi dalam Aplikasi</li>
+          <li><strong>Data Penggunaan</strong> — aktivitas permainan, skor, dan durasi sesi</li>
+          <li><strong>Informasi Perangkat</strong> — jenis perangkat, versi OS, dan info browser</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>3. Cara Kami Menggunakan Informasi Anda</h2>
+        <p>Kami menggunakan data yang dikumpulkan untuk:</p>
+        <ul>
+          <li>Mengautentikasi identitas Anda melalui Pi Network</li>
+          <li>Memproses dan memverifikasi pembayaran Pi</li>
+          <li>Meningkatkan performa aplikasi dan pengalaman pengguna</li>
+          <li>Mendeteksi dan mencegah penipuan atau penyalahgunaan</li>
+          <li>Mematuhi kewajiban hukum</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>4. Integrasi Pi Network</h2>
+        <p>Aplikasi kami terintegrasi dengan SDK Pi Network untuk autentikasi dan pembayaran. Saat Anda melakukan autentikasi atau pembayaran, data tertentu dibagikan ke Pi Network sesuai kebijakan privasi mereka. Kami mendorong Anda untuk membaca Kebijakan Privasi Pi Network di <a href="https://minepi.com/privacy-policy" target="_blank" style="color:var(--accent)">minepi.com</a>.</p>
+      </div>
+
+      <div class="section">
+        <h2>5. Berbagi Data</h2>
+        <p>Kami tidak menjual, memperdagangkan, atau menyewakan informasi pribadi Anda kepada pihak ketiga. Kami hanya dapat berbagi data:</p>
+        <ul>
+          <li>Dengan Pi Network sebagaimana diperlukan untuk pemrosesan pembayaran</li>
+          <li>Ketika diwajibkan oleh hukum atau proses hukum</li>
+          <li>Untuk melindungi hak dan keamanan Sagatama Games dan penggunanya</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>6. Penyimpanan Data</h2>
+        <p>Kami menyimpan data Anda hanya selama diperlukan untuk menyediakan layanan kami atau sebagaimana diwajibkan oleh hukum. Catatan transaksi dapat disimpan minimal 1 tahun untuk keperluan audit.</p>
+      </div>
+
+      <div class="section">
+        <h2>7. Keamanan</h2>
+        <p>Kami menerapkan langkah-langkah keamanan standar industri untuk melindungi data Anda. Namun, tidak ada metode transmisi melalui internet yang 100% aman. Kami tidak dapat menjamin keamanan mutlak.</p>
+      </div>
+
+      <div class="section">
+        <h2>8. Hak Anda</h2>
+        <p>Anda berhak untuk:</p>
+        <ul>
+          <li>Mengakses data pribadi yang kami simpan tentang Anda</li>
+          <li>Meminta koreksi data yang tidak akurat</li>
+          <li>Meminta penghapusan data Anda (sejauh diizinkan secara hukum)</li>
+          <li>Menarik persetujuan kapan saja</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>9. Privasi Anak-anak</h2>
+        <p>Aplikasi kami tidak ditujukan untuk pengguna di bawah 18 tahun. Kami tidak dengan sengaja mengumpulkan data pribadi dari anak di bawah umur. Jika Anda yakin seorang anak telah memberikan data, harap hubungi kami segera.</p>
+      </div>
+
+      <div class="section">
+        <h2>10. Perubahan Kebijakan Ini</h2>
+        <p>Kami dapat memperbarui Kebijakan Privasi ini dari waktu ke waktu. Kami akan memberitahu pengguna tentang perubahan signifikan melalui Aplikasi atau email. Penggunaan Aplikasi yang berkelanjutan merupakan penerimaan atas perubahan tersebut.</p>
+      </div>
+
+      <div class="section">
+        <h2>11. Hubungi Kami</h2>
+        <div class="contact-card">
+          <p><strong>Perusahaan:</strong> Sagatama Games</p>
+          <p><strong>Email:</strong> <a href="mailto:agussupriyantosaragih@gmail.com">agussupriyantosaragih@gmail.com</a></p>
+          <p><strong>Telepon:</strong> <a href="tel:+6285213346061">+62 852-1334-6061</a></p>
+          <p><strong>Alamat:</strong> Asahan, Sumatera Utara, Indonesia</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  © 2026 Sagatama Games · Asahan, Sumatera Utara, Indonesia
+</footer>
+
+<script>
+  let currentLang = 'en';
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.lang-btn[onclick="setLang('${lang}')"]`).classList.add('active');
+    document.querySelectorAll('.lang-en, .lang-id').forEach(el => el.style.display = 'none');
+    document.querySelectorAll(`.lang-${lang}`).forEach(el => el.style.display = 'block');
+  }
+
+  function setTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // Init
+  setLang('en');
+</script>
+
+</body>
+</html>
