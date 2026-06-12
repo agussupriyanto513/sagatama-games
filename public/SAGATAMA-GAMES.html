@@ -1854,7 +1854,7 @@ async function sendWelcomeBonus() {
     if (!snap.exists()) return;
     if (snap.data().welcomeBonusSent === true) return; // sudah pernah dapat
     console.log('[welcome-bonus] User baru, kirim Pi bonus...');
-    const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/welcome-bonus', {
+    const resp = await fetch('https://sagatama-games.vercel.app/api/payments/welcome-bonus', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: fbUid, piUid: window.piUID })
@@ -1958,7 +1958,7 @@ async function onIncompletePaymentFound(payment) {
   }
 
   try {
-    const resp = await fetch("https://sagatama-games.vercel.app/api/pi-payment/incomplete", {
+    const resp = await fetch("https://sagatama-games.vercel.app/api/payments/incomplete", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ paymentId })
@@ -1978,7 +1978,7 @@ async function sendPiReward(earnedSgt) {
   const piAmount = parseFloat((earnedSgt / 100).toFixed(4));
   if (piAmount < 0.001) return;
   try {
-    const resp = await fetch('/api/pi-payment/payout', {
+    const resp = await fetch('https://sagatama-games.vercel.app/api/payments/payout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2031,7 +2031,7 @@ async function piTopUpSGT(piAmount) {
       // ─────────────────────────────────────────────────────────
       onReadyForServerApproval: async function(paymentId) {
         try {
-          const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/approve', {
+          const resp = await fetch('https://sagatama-games.vercel.app/api/payments/approve', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ paymentId, uid: fbUid, sgtAmount })
@@ -2050,7 +2050,7 @@ async function piTopUpSGT(piAmount) {
       // Callback saat pembayaran selesai di blockchain
       onReadyForServerCompletion: async function(paymentId, txid) {
         try {
-          const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/complete', {
+          const resp = await fetch('https://sagatama-games.vercel.app/api/payments/complete', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ paymentId, txid, uid: fbUid, sgtAmount })
