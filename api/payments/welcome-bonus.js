@@ -1,10 +1,10 @@
-// /api/pi-payment/welcome-bonus.js
+// /api/payments/welcome-bonus.js
 // A2U: Kirim Pi testnet sebagai welcome bonus untuk user baru
 import { admin, getFirebaseApp } from '../../firebase-init.js';
 getFirebaseApp();
 
-const WELCOME_BONUS_PI = 0.001; // Jumlah Pi testnet yang dikirim
-const WELCOME_BONUS_SGT = 50;   // Bonus SGT tambahan
+const WELCOME_BONUS_PI = 0.001;
+const WELCOME_BONUS_SGT = 50;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +14,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { uid, piUid } = req.body;
-
   if (!uid || !piUid) {
     return res.status(400).json({ error: 'uid dan piUid diperlukan' });
   }
@@ -30,18 +29,12 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: `Player ${uid} tidak ditemukan` });
     }
 
-    const playerData = playerSnap.data();
-
     // Guard: jangan kirim bonus dua kali
-    if (playerData.welcomeBonusSent === true) {
-      return res.status(200).json({
-        success: false,
-        alreadySent: true,
-        message: 'Welcome bonus sudah pernah dikirim'
-      });
+    if (playerSnap.data().welcomeBonusSent === true) {
+      return res.status(200).json({ success: false, alreadySent: true });
     }
 
-    // 2. Tandai dulu di Firestore (optimistic lock) supaya tidak double-send
+    // 2. Optimistic lock — tandai dulu sebelum hit Pi API
     await playerRef.update({
       welcomeBonusSent: true,
       welcomeBonusSentAt: admin.firestore.FieldValue.serverTimestamp()
@@ -49,7 +42,7 @@ export default async function handler(req, res) {
 
     console.log(`[welcome-bonus] Mulai kirim ke uid=${uid}, piUid=${piUid}`);
 
-    // 3. Buat A2U payment di Pi Platform
+    // 3. Buat A2U payment
     const createResp = await fetch('https://api.minepi.com/v2/payments', {
       method: 'POST',
       headers: {
@@ -69,20 +62,17 @@ export default async function handler(req, res) {
 
     const createData = await createResp.json();
     if (!createResp.ok) {
-      // Rollback flag jika Pi API gagal
-      await playerRef.update({ welcomeBonusSent: false });
-      console.error('[welcome-bonus] Gagal buat payment:', createData);
+      await playerRef.update({ welcomeBonusSent: false }); // rollback
+      console.error(`[welcome-bonus] Gagal buat payment (HTTP ${createResp.status}):`, JSON.stringify(createData));
       return res.status(400).json({ error: 'Gagal membuat payment', detail: createData });
     }
 
     const paymentId = createData.identifier;
     console.log(`[welcome-bonus] Payment dibuat: ${paymentId}`);
 
-    // 4. Simpan ke koleksi payouts (status: pending)
+    // 4. Simpan ke Firestore (pending)
     await db.collection('payouts').doc(paymentId).set({
-      paymentId,
-      uid,
-      piUid,
+      paymentId, uid, piUid,
       piAmount: WELCOME_BONUS_PI,
       reason: 'welcome_bonus',
       status: 'pending',
@@ -92,13 +82,11 @@ export default async function handler(req, res) {
     // 5. Approve
     const approveResp = await fetch(
       `https://api.minepi.com/v2/payments/${paymentId}/approve`,
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Key ${process.env.PI_API_KEY}` }
-      }
+      { method: 'POST', headers: { 'Authorization': `Key ${process.env.PI_API_KEY}` } }
     );
     if (!approveResp.ok) {
       const errData = await approveResp.json();
+      console.error(`[welcome-bonus] Approve gagal (HTTP ${approveResp.status}):`, JSON.stringify(errData));
       await updateStatus(db, paymentId, 'approve_failed', null);
       return res.status(400).json({ error: 'Approve gagal', detail: errData });
     }
@@ -113,15 +101,12 @@ export default async function handler(req, res) {
           'Authorization': `Key ${process.env.PI_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          wallet_private_seed: process.env.PI_WALLET_PRIVATE_SEED
-        })
+        body: JSON.stringify({ wallet_private_seed: process.env.PI_WALLET_PRIVATE_SEED })
       }
     );
-
     const submitData = await submitResp.json();
     if (!submitResp.ok) {
-      console.error('[welcome-bonus] Submit gagal:', submitData);
+      console.error(`[welcome-bonus] Submit gagal (HTTP ${submitResp.status}):`, JSON.stringify(submitData));
       await updateStatus(db, paymentId, 'submit_failed', null);
       return res.status(400).json({ error: 'Submit ke blockchain gagal', detail: submitData });
     }
@@ -129,7 +114,7 @@ export default async function handler(req, res) {
     const txid = submitData.txid;
     console.log(`[welcome-bonus] Submitted, txid: ${txid}`);
 
-    // 7. Complete payment
+    // 7. Complete
     const completeResp = await fetch(
       `https://api.minepi.com/v2/payments/${paymentId}/complete`,
       {
@@ -141,14 +126,14 @@ export default async function handler(req, res) {
         body: JSON.stringify({ txid })
       }
     );
-
     if (!completeResp.ok) {
       const errData = await completeResp.json();
+      console.error(`[welcome-bonus] Complete gagal (HTTP ${completeResp.status}):`, JSON.stringify(errData));
       await updateStatus(db, paymentId, 'complete_failed', txid);
       return res.status(400).json({ error: 'Complete gagal', detail: errData });
     }
 
-    // 8. Update status + tambah SGT bonus ke player
+    // 8. Update Firestore — status completed + tambah SGT
     await updateStatus(db, paymentId, 'completed', txid);
     await playerRef.update({
       sgtBalance: admin.firestore.FieldValue.increment(WELCOME_BONUS_SGT),
@@ -156,11 +141,8 @@ export default async function handler(req, res) {
     });
 
     console.log(`[welcome-bonus] Selesai: ${WELCOME_BONUS_PI} Pi + ${WELCOME_BONUS_SGT} SGT → uid=${uid}, txid=${txid}`);
-
     return res.status(200).json({
-      success: true,
-      paymentId,
-      txid,
+      success: true, paymentId, txid,
       piAmount: WELCOME_BONUS_PI,
       sgtBonus: WELCOME_BONUS_SGT
     });
@@ -172,10 +154,7 @@ export default async function handler(req, res) {
 }
 
 async function updateStatus(db, paymentId, status, txid) {
-  const data = {
-    status,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-  };
+  const data = { status, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
   if (txid) data.txid = txid;
   if (status === 'completed') data.completedAt = admin.firestore.FieldValue.serverTimestamp();
   try {
