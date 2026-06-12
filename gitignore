@@ -1,0 +1,23 @@
+# Environment variables — JANGAN PERNAH di-commit!
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+
+# Vercel
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase service account — RAHASIA, jangan sampai ke-commit
+serviceAccount.json
+*-service-account.json
+firebase-adminsdk*.json
+
+# Log files
+*.log
+npm-debug.log*
