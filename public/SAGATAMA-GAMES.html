@@ -1938,6 +1938,37 @@ async function onIncompletePaymentFound(payment) {
 }
 window.onIncompletePaymentFound = onIncompletePaymentFound;
 
+// ── APP-TO-USER: Kirim Pi ke wallet user setelah menang ──
+async function sendPiReward(earnedSgt) {
+  if (!walletConnected || !fbUid || !window.piUID) return;
+  // Konversi SGT ke Pi: 100 SGT = 1 Pi, minimum payout 0.001 Pi
+  const piAmount = parseFloat((earnedSgt / 100).toFixed(4));
+  if (piAmount < 0.001) return;
+  try {
+    const resp = await fetch('/api/pi-payment/payout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid:      fbUid,
+        piUid:    window.piUID,
+        piAmount: piAmount,
+        reason:   'game_win_' + (currentGame || 'unknown')
+      })
+    });
+    const data = await resp.json();
+    if (data.success) {
+      toast('🪙 +' + piAmount + ' Pi terkirim ke wallet!', 'gold');
+      console.log('[payout] Sukses txid:', data.txid);
+    } else {
+      console.warn('[payout] Gagal:', data.error);
+    }
+  } catch (e) {
+    console.warn('[payout] Error:', e.message);
+  }
+}
+window.sendPiReward = sendPiReward;
+
+
 // ── TOP-UP SGT dengan Pi Coin ──
 async function piTopUpSGT(piAmount) {
   if (typeof window.Pi === 'undefined') {
@@ -2305,6 +2336,8 @@ function showResult(won,isDraw,gameScore){
     msg.textContent='SGT sudah ditambahkan ke saldo';
     if(hasWallet){sgtBalance+=earn;updSgt();}
     toast('🎉 +'+earn.toFixed(2)+' SGT!','gold');
+    // Kirim Pi ke wallet user (A2U payout)
+    if (window.sendPiReward) window.sendPiReward(earn);
   } else {
     icon.textContent='💀';title.textContent='KALAH!';
     sgtEl.textContent='-'+currentBet.toFixed(2)+' SGT';sgtEl.style.color='var(--red)';
