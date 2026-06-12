@@ -53,7 +53,8 @@ export default async function handler(req, res) {
 
     const createData = await createResp.json();
     if (!createResp.ok) {
-      console.error('[payout] Gagal buat payment:', createData);
+      console.error(`[payout] Gagal buat payment (HTTP ${createResp.status}):`, JSON.stringify(createData));
+      console.error(`[payout] piUid=${piUid} piAmount=${piAmount} reason=${reason}`);
       return res.status(400).json({ error: 'Gagal membuat payment', detail: createData });
     }
 
@@ -78,6 +79,8 @@ export default async function handler(req, res) {
     );
     if (!approveResp.ok) {
       const errData = await approveResp.json();
+      console.error(`[payout] Approve gagal (HTTP ${approveResp.status}):`, JSON.stringify(errData));
+      console.error(`[payout] paymentId=${paymentId} piUid=${piUid} piAmount=${piAmount}`);
       await updatePayoutStatus(db, paymentId, 'approve_failed', null);
       return res.status(400).json({ error: 'Approve gagal', detail: errData });
     }
