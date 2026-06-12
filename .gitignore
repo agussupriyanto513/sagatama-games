@@ -12,3 +12,12 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Firebase service account — RAHASIA, jangan sampai ke-commit
+serviceAccount.json
+*-service-account.json
+firebase-adminsdk*.json
+
+# Log files
+*.log
+npm-debug.log*
