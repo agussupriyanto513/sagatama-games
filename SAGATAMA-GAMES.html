@@ -1747,7 +1747,7 @@ async function piAuthAndLogin() {
 
     // 1. Autentikasi Pi Network — minta username + payments
     if (loginStatus) loginStatus.textContent = 'Autentikasi Pi...';
-    const authResult = await window.Pi.authenticate(['username', 'payments'], onIncompletePaymentFound);
+    const authResult = await window.Pi.authenticate(['username', 'payments', 'wallet_address'], onIncompletePaymentFound);
     piAccessToken = authResult.accessToken;
     window.piUID   = authResult.user.uid;
     window.piUsername = authResult.user.username;
@@ -1789,6 +1789,7 @@ async function piAuthAndLogin() {
     // 4. Simpan / load data player
     await ensurePlayerDoc();
     await loadMyData();
+	sendWelcomeBonus();
 
     // 5. Update UI wallet card langsung
     window.walletConnected = true;
@@ -1843,6 +1844,75 @@ async function ensurePlayerDoc() {
     }
   } catch(e) { console.warn('ensurePlayerDoc error:', e); }
 }
+
+// ══════════════════════════════════════════════════
+// WELCOME BONUS — tambahkan setelah fungsi ensurePlayerDoc()
+// Trigger A2U otomatis untuk user baru pertama kali login
+// ══════════════════════════════════════════════════
+
+async function sendWelcomeBonus() {
+  // Hanya jalan jika sudah login Pi dan punya fbUid
+  if (!fbUid || !window.piUID) return;
+
+  try {
+    // Cek dulu di Firestore apakah sudah pernah dapat bonus
+    const ref = doc(db, 'players', fbUid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+
+    // Sudah pernah dapat bonus → skip
+    if (data.welcomeBonusSent === true) return;
+
+    console.log('[welcome-bonus] User baru terdeteksi, kirim bonus...');
+
+    const resp = await fetch('https://sagatama-games.vercel.app/api/pi-payment/welcome-bonus', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: fbUid,
+        piUid: window.piUID
+      })
+    });
+
+    const result = await resp.json();
+
+    if (result.success) {
+      // Update saldo SGT di UI langsung tanpa reload
+      sgtBalance += result.sgtBonus || 50;
+      updSgt();
+      if (window.fbSaveSGT) window.fbSaveSGT(sgtBalance, null, 0);
+
+      toast(`🎉 Selamat datang! Kamu dapat ${result.piAmount} Pi + ${result.sgtBonus} SGT bonus!`, 'gold');
+      console.log(`[welcome-bonus] Berhasil! txid=${result.txid}`);
+
+    } else if (result.alreadySent) {
+      // Sudah pernah dapat, tidak perlu notif
+      console.log('[welcome-bonus] Sudah pernah dikirim, skip.');
+    } else {
+      console.warn('[welcome-bonus] Gagal:', result.error);
+    }
+
+  } catch (e) {
+    // Gagal kirim bonus tidak boleh ganggu proses login
+    console.warn('[welcome-bonus] Error (non-fatal):', e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// PERUBAHAN di fungsi piAuthAndLogin()
+// Tambahkan pemanggilan sendWelcomeBonus() setelah loadMyData()
+// ══════════════════════════════════════════════════
+
+// SEBELUM (sekitar baris 1790-1791):
+//   await ensurePlayerDoc();
+//   await loadMyData();
+
+// SESUDAH — tambahkan baris sendWelcomeBonus():
+//   await ensurePlayerDoc();
+//   await loadMyData();
+//   sendWelcomeBonus(); // ← tambahkan ini (tidak perlu await, biar tidak block login)
 
 // Auto-coba login saat halaman dibuka (jika sudah di Pi Browser)
 window.addEventListener('DOMContentLoaded', () => {
