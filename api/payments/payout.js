@@ -3,6 +3,62 @@
 import { admin, getFirebaseApp } from '../../firebase-init.js';
 getFirebaseApp();
 
+// Helper: fetch ke Pi API, handle HTML response
+async function piRequest(url, options = {}) {
+  const resp = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Key ${process.env.PI_API_KEY}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+  const text = await resp.text();
+  if (text.trim().startsWith('<')) {
+    throw new Error(`Pi API HTTP ${resp.status} HTML response. URL: ${url}`);
+  }
+  try {
+    return { ok: resp.ok, status: resp.status, data: JSON.parse(text) };
+  } catch (e) {
+    throw new Error(`Pi API bukan JSON (HTTP ${resp.status}): ${text.substring(0, 200)}`);
+  }
+}
+
+// Polling txid dari Pi Platform — A2U: Pi yang submit ke blockchain, bukan kita
+// Tunggu maksimal maxWaitMs, cek setiap intervalMs
+async function waitForTxid(paymentId, maxWaitMs = 30000, intervalMs = 3000) {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise(r => setTimeout(r, intervalMs));
+    const { ok, data } = await piRequest(`https://api.minepi.com/v2/payments/${paymentId}`);
+    if (!ok) break;
+    console.log(`[payout] Polling txid... status:`, JSON.stringify(data.status));
+    if (data.transaction?.txid) {
+      return data.transaction.txid;
+    }
+    // Kalau sudah cancelled, berhenti poll
+    if (data.status?.cancelled || data.status?.user_cancelled) {
+      throw new Error('Payment dibatalkan saat menunggu txid');
+    }
+  }
+  return null; // timeout
+}
+
+// Cancel payment yang stuck (ongoing_payment_found)
+async function cancelPayment(paymentId) {
+  try {
+    const { ok, data } = await piRequest(
+      `https://api.minepi.com/v2/payments/${paymentId}/cancel`,
+      { method: 'POST', body: JSON.stringify({}) }
+    );
+    console.log(`[payout] Cancel payment ${paymentId}:`, ok ? 'OK' : JSON.stringify(data));
+    return ok;
+  } catch (e) {
+    console.warn(`[payout] Cancel error:`, e.message);
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -11,11 +67,6 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { uid, piUid, piAmount, reason } = req.body;
-  // uid       = Firestore user ID (untuk update saldo)
-  // piUid     = Pi Network UID user penerima (dari Pi.authenticate())
-  // piAmount  = jumlah Pi yang dikirim, contoh: 0.01
-  // reason    = keterangan, contoh: "game_win", "daily_reward"
-
   if (!uid || !piUid || !piAmount) {
     return res.status(400).json({ error: 'uid, piUid, dan piAmount diperlukan' });
   }
@@ -26,42 +77,88 @@ export default async function handler(req, res) {
   const db = admin.firestore();
 
   try {
-    // 1. Cek apakah user ada di Firestore
-    const playerRef = db.collection('players').doc(uid);
-    const playerSnap = await playerRef.get();
+    // Cek player ada
+    const playerSnap = await db.collection('players').doc(uid).get();
     if (!playerSnap.exists) {
       return res.status(404).json({ error: `Player ${uid} tidak ditemukan` });
     }
 
-    // 2. Buat A2U payment di Pi Platform
-    const createResp = await fetch('https://api.minepi.com/v2/payments', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${process.env.PI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        payment: {
-          amount: piAmount,
-          memo: `Sagatama Games: ${reason || 'reward'}`,
-          metadata: { uid, reason: reason || 'reward' },
-          uid: piUid,
-          payment_type: 'app_to_user'
-        }
-      })
-    });
+    // ── Step 1: Buat payment ──
+    let createData, paymentId;
 
-    const createData = await createResp.json();
-    if (!createResp.ok) {
-      console.error(`[payout] Gagal buat payment (HTTP ${createResp.status}):`, JSON.stringify(createData));
-      console.error(`[payout] piUid=${piUid} piAmount=${piAmount} reason=${reason}`);
-      return res.status(400).json({ error: 'Gagal membuat payment', detail: createData });
+    const { ok: createOk, status: createStatus, data: createResp } = await piRequest(
+      'https://api.minepi.com/v2/payments',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          payment: {
+            amount: piAmount,
+            memo: `Sagatama Games: ${reason || 'reward'}`,
+            metadata: { uid, reason: reason || 'reward' },
+            uid: piUid,
+            payment_type: 'app_to_user'
+          }
+        })
+      }
+    );
+
+    if (!createOk) {
+      // Handle ongoing_payment_found — ada payment lama yang stuck
+      if (createResp.error === 'ongoing_payment_found') {
+        const stuckId = createResp.payment?.identifier;
+        console.log(`[payout] Ada payment stuck: ${stuckId}, coba cancel dulu...`);
+
+        if (stuckId) {
+          const cancelled = await cancelPayment(stuckId);
+          // Update Firestore status payment lama
+          await db.collection('payouts').doc(stuckId).set({
+            status: 'cancelled_auto',
+            cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+
+          if (cancelled) {
+            // Retry create setelah cancel
+            const { ok: retryOk, data: retryData } = await piRequest(
+              'https://api.minepi.com/v2/payments',
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  payment: {
+                    amount: piAmount,
+                    memo: `Sagatama Games: ${reason || 'reward'}`,
+                    metadata: { uid, reason: reason || 'reward' },
+                    uid: piUid,
+                    payment_type: 'app_to_user'
+                  }
+                })
+              }
+            );
+            if (!retryOk) {
+              return res.status(400).json({ error: 'Gagal buat payment setelah cancel stuck', detail: retryData });
+            }
+            createData = retryData;
+          } else {
+            return res.status(400).json({
+              error: 'Ada payment stuck yang tidak bisa dicancel',
+              stuckPaymentId: stuckId
+            });
+          }
+        } else {
+          return res.status(400).json({ error: 'ongoing_payment_found tapi tidak ada identifier', detail: createResp });
+        }
+      } else {
+        console.error(`[payout] Gagal buat payment (HTTP ${createStatus}):`, JSON.stringify(createResp));
+        return res.status(400).json({ error: 'Gagal membuat payment', detail: createResp });
+      }
+    } else {
+      createData = createResp;
     }
 
-    const paymentId = createData.identifier;
-    console.log(`[payout] Payment dibuat: ${paymentId}`);
+    paymentId = createData.identifier;
+    console.log(`[payout] paymentId=${paymentId} piUid=${piUid} piAmount=${piAmount}`);
 
-    // 3. Simpan ke Firestore dulu (status: pending)
+    // Simpan ke Firestore (pending)
     await db.collection('payouts').doc(paymentId).set({
       paymentId, uid, piUid, piAmount,
       reason: reason || 'reward',
@@ -69,77 +166,62 @@ export default async function handler(req, res) {
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // 4. Approve payment dari server
-    const approveResp = await fetch(
+    // ── Step 2: Approve ──
+    const { ok: approveOk, data: approveData } = await piRequest(
       `https://api.minepi.com/v2/payments/${paymentId}/approve`,
-      {
-        method: 'POST',
-        headers: { 'Authorization': `Key ${process.env.PI_API_KEY}` }
-      }
-    );
-    if (!approveResp.ok) {
-      const errData = await approveResp.json();
-      console.error(`[payout] Approve gagal (HTTP ${approveResp.status}):`, JSON.stringify(errData));
-      console.error(`[payout] paymentId=${paymentId} piUid=${piUid} piAmount=${piAmount}`);
-      await updatePayoutStatus(db, paymentId, 'approve_failed', null);
-      return res.status(400).json({ error: 'Approve gagal', detail: errData });
-    }
-    console.log(`[payout] Approved: ${paymentId}`);
-
-    // 5. Submit ke blockchain menggunakan wallet seed app
-    const submitResp = await fetch(
-      `https://api.minepi.com/v2/payments/${paymentId}/submit_payment`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${process.env.PI_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          wallet_private_seed: process.env.PI_WALLET_PRIVATE_SEED
-        })
-      }
+      { method: 'POST' }
     );
 
-    const submitData = await submitResp.json();
-    if (!submitResp.ok) {
-      console.error('[payout] Submit gagal:', submitData);
-      await updatePayoutStatus(db, paymentId, 'submit_failed', null);
-      return res.status(400).json({ error: 'Submit ke blockchain gagal', detail: submitData });
+    if (!approveOk) {
+      // already_approved = lanjut saja
+      if (approveData.error !== 'already_approved') {
+        console.error(`[payout] Approve gagal:`, JSON.stringify(approveData));
+        await updatePayoutStatus(db, paymentId, 'approve_failed', null);
+        return res.status(400).json({ error: 'Approve gagal', detail: approveData });
+      }
+      console.log(`[payout] Already approved, lanjut...`);
+    } else {
+      console.log(`[payout] Approved: ${paymentId}`);
     }
 
-    const txid = submitData.txid;
-    console.log(`[payout] Submitted ke blockchain, txid: ${txid}`);
+    await updatePayoutStatus(db, paymentId, 'approved', null);
 
-    // 6. Complete payment
-    const completeResp = await fetch(
+    // ── Step 3: Tunggu Pi submit ke blockchain (polling txid) ──
+    // TIDAK pakai submit_payment — untuk A2U Pi Platform yang submit sendiri
+    console.log(`[payout] Menunggu Pi submit ke blockchain...`);
+    const txid = await waitForTxid(paymentId, 30000, 3000);
+
+    if (!txid) {
+      // txid belum muncul dalam 30 detik — payment tetap approved di Pi
+      // Client bisa retry nanti, payment tidak hilang
+      await updatePayoutStatus(db, paymentId, 'pending_blockchain', null);
+      console.warn(`[payout] Timeout tunggu txid. paymentId=${paymentId} masih pending di blockchain.`);
+      return res.status(202).json({
+        success: false,
+        pending: true,
+        message: 'Payment approved tapi txid belum muncul. Pi sedang proses di blockchain. Akan selesai otomatis.',
+        paymentId
+      });
+    }
+
+    console.log(`[payout] txid didapat: ${txid}`);
+
+    // ── Step 4: Complete ──
+    const { ok: completeOk, data: completeData } = await piRequest(
       `https://api.minepi.com/v2/payments/${paymentId}/complete`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${process.env.PI_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ txid })
-      }
+      { method: 'POST', body: JSON.stringify({ txid }) }
     );
 
-    if (!completeResp.ok) {
-      const errData = await completeResp.json();
+    if (!completeOk) {
+      console.error(`[payout] Complete gagal:`, JSON.stringify(completeData));
       await updatePayoutStatus(db, paymentId, 'complete_failed', txid);
-      return res.status(400).json({ error: 'Complete gagal', detail: errData });
+      return res.status(400).json({ error: 'Complete gagal', detail: completeData });
     }
 
-    // 7. Update status payout ke completed di Firestore
     await updatePayoutStatus(db, paymentId, 'completed', txid);
 
-    console.log(`[payout] Selesai: ${piAmount} Pi → uid=${uid}, txid=${txid}`);
-    return res.status(200).json({
-      success: true,
-      paymentId,
-      txid,
-      piAmount
-    });
+    console.log(`[payout] ✅ Selesai: ${piAmount} Pi → uid=${uid}, txid=${txid}`);
+    return res.status(200).json({ success: true, paymentId, txid, piAmount });
 
   } catch (err) {
     console.error('[payout] ERROR:', err.message);
@@ -154,10 +236,8 @@ async function updatePayoutStatus(db, paymentId, status, txid) {
   };
   if (txid) data.txid = txid;
   if (status === 'completed') data.completedAt = admin.firestore.FieldValue.serverTimestamp();
-
   try {
     await db.collection('payouts').doc(paymentId).set(data, { merge: true });
-    console.log(`[payout] Firestore updated: ${paymentId} → ${status}`);
   } catch (e) {
     console.error(`[payout] Firestore update error:`, e.message);
   }
