@@ -1,8 +1,8 @@
 // /api/payments/resolve-stuck.js
+// Untuk menyelesaikan payment A2U yang stuck (sudah approved, belum completed)
 import { admin, getFirebaseApp } from '../../firebase-init.js';
 getFirebaseApp();
 
-// Helper: fetch ke Pi API, handle kalau response bukan JSON
 async function piRequest(url, options = {}) {
   const resp = await fetch(url, {
     ...options,
@@ -12,22 +12,15 @@ async function piRequest(url, options = {}) {
       ...(options.headers || {})
     }
   });
-
   const text = await resp.text();
-
-  // Cek apakah response adalah HTML (error dari Pi server)
   if (text.trim().startsWith('<')) {
-    throw new Error(`Pi API returned HTML (HTTP ${resp.status}). PI_API_KEY mungkin salah atau expired. URL: ${url}`);
+    throw new Error(`Pi API HTTP ${resp.status} HTML response. URL: ${url}`);
   }
-
-  let data;
   try {
-    data = JSON.parse(text);
+    return { ok: resp.ok, status: resp.status, data: JSON.parse(text) };
   } catch (e) {
-    throw new Error(`Pi API response bukan JSON (HTTP ${resp.status}): ${text.substring(0, 200)}`);
+    throw new Error(`Pi API response bukan JSON (HTTP ${resp.status}): ${text.substring(0, 300)}`);
   }
-
-  return { ok: resp.ok, status: resp.status, data };
 }
 
 export default async function handler(req, res) {
@@ -37,101 +30,92 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Validasi env
   if (!process.env.PI_API_KEY) {
-    return res.status(500).json({ error: 'PI_API_KEY belum diset di Vercel environment' });
-  }
-  if (!process.env.PI_WALLET_PRIVATE_SEED) {
-    return res.status(500).json({ error: 'PI_WALLET_PRIVATE_SEED belum diset di Vercel environment' });
+    return res.status(500).json({ error: 'PI_API_KEY belum diset' });
   }
 
   const paymentId = req.body?.paymentId;
   if (!paymentId) {
-    return res.status(400).json({ error: 'paymentId wajib diisi di body' });
+    return res.status(400).json({ error: 'paymentId wajib diisi' });
   }
 
-  console.log(`[resolve-stuck] Mulai proses paymentId: ${paymentId}`);
+  console.log(`[resolve-stuck] paymentId: ${paymentId}`);
 
   try {
-    // Step 1: Cek status payment di Pi Platform
-    console.log(`[resolve-stuck] Cek status payment...`);
-    const { ok: checkOk, status: checkStatus, data: payment } = await piRequest(
+    // Step 1: GET status terkini dari Pi Platform
+    console.log(`[resolve-stuck] Step 1: GET payment status...`);
+    const { ok, status: httpStatus, data: payment } = await piRequest(
       `https://api.minepi.com/v2/payments/${paymentId}`
     );
 
-    console.log(`[resolve-stuck] Status (HTTP ${checkStatus}):`, JSON.stringify(payment));
+    console.log(`[resolve-stuck] Payment status (HTTP ${httpStatus}):`, JSON.stringify(payment.status));
+    console.log(`[resolve-stuck] Transaction:`, JSON.stringify(payment.transaction));
 
-    if (!checkOk) {
-      return res.status(400).json({ error: 'Payment tidak ditemukan di Pi Platform', detail: payment });
+    if (!ok) {
+      return res.status(400).json({ error: 'Payment tidak ditemukan', detail: payment });
     }
 
-    // Sudah completed — tidak perlu proses
-    if (payment.status?.developer_completed === true) {
+    // Sudah selesai
+    if (payment.status?.developer_completed) {
       return res.status(200).json({
         success: true,
-        alreadyCompleted: true,
-        message: 'Payment sudah completed sebelumnya',
+        alreadyDone: true,
         paymentId,
         txid: payment.transaction?.txid
       });
     }
 
-    // Dibatalkan — tidak bisa diproses
+    // Dibatalkan
     if (payment.status?.cancelled || payment.status?.user_cancelled) {
-      return res.status(400).json({ error: 'Payment sudah dibatalkan', paymentId });
+      return res.status(400).json({ error: 'Payment sudah cancelled', paymentId });
     }
 
+    // Untuk A2U: Pi Platform submit sendiri ke blockchain
+    // Kita hanya perlu txid dari transaction, lalu panggil /complete
     let txid = payment.transaction?.txid;
 
-    // Step 2: Submit ke blockchain (jika transaction masih null / belum verified)
-    if (!payment.status?.transaction_verified && !txid) {
-      console.log(`[resolve-stuck] Submit ke blockchain...`);
-      const { ok: submitOk, status: submitStatus, data: submitData } = await piRequest(
-        `https://api.minepi.com/v2/payments/${paymentId}/submit_payment`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ wallet_private_seed: process.env.PI_WALLET_PRIVATE_SEED })
-        }
+    // Step 2: Kalau txid belum ada, coba tunggu sebentar dan GET ulang
+    if (!txid) {
+      console.log(`[resolve-stuck] txid belum ada, tunggu 3 detik dan retry...`);
+      await new Promise(r => setTimeout(r, 3000));
+
+      const { ok: ok2, data: payment2 } = await piRequest(
+        `https://api.minepi.com/v2/payments/${paymentId}`
       );
 
-      console.log(`[resolve-stuck] Submit (HTTP ${submitStatus}):`, JSON.stringify(submitData));
-
-      if (!submitOk) {
-        return res.status(400).json({ error: 'Submit ke blockchain gagal', detail: submitData });
+      if (ok2) {
+        txid = payment2.transaction?.txid;
+        console.log(`[resolve-stuck] Setelah retry, txid:`, txid);
+        console.log(`[resolve-stuck] Status:`, JSON.stringify(payment2.status));
       }
-
-      txid = submitData.txid || submitData.transaction?.txid;
     }
 
+    // Kalau masih tidak ada txid → payment belum diproses blockchain sama sekali
+    // Ini terjadi kalau Pi Platform belum submit (butuh waktu / ada bug di Pi)
     if (!txid) {
-      // Coba ambil txid dari payment data yang sudah ada
-      txid = payment.transaction?.txid;
-    }
-
-    if (!txid) {
-      return res.status(400).json({
-        error: 'Tidak ada txid setelah submit. Payment mungkin perlu waktu lebih lama di blockchain.',
+      return res.status(202).json({
+        success: false,
+        pending: true,
+        message: 'Payment sudah approved tapi belum ada txid dari blockchain Pi. ' +
+                 'Ini bisa terjadi di testnet. Coba lagi dalam beberapa menit, ' +
+                 'atau cancel payment ini dari Pi Developer Portal dan buat baru.',
         paymentId,
-        currentStatus: payment.status
+        currentStatus: payment.status,
+        suggestion: 'Buka https://developers.minepi.com → Payments → cancel payment ini'
       });
     }
 
-    console.log(`[resolve-stuck] txid didapat: ${txid}`);
-
-    // Step 3: Complete payment
-    console.log(`[resolve-stuck] Complete payment...`);
+    // Step 3: Complete payment dengan txid yang ada
+    console.log(`[resolve-stuck] Step 3: Complete dengan txid: ${txid}`);
     const { ok: completeOk, status: completeStatus, data: completeData } = await piRequest(
       `https://api.minepi.com/v2/payments/${paymentId}/complete`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ txid })
-      }
+      { method: 'POST', body: JSON.stringify({ txid }) }
     );
 
     console.log(`[resolve-stuck] Complete (HTTP ${completeStatus}):`, JSON.stringify(completeData));
 
     if (!completeOk) {
-      return res.status(400).json({ error: 'Complete payment gagal', detail: completeData });
+      return res.status(400).json({ error: 'Complete gagal', detail: completeData });
     }
 
     // Step 4: Update Firestore
@@ -140,16 +124,15 @@ export default async function handler(req, res) {
       await db.collection('payouts').doc(paymentId).set({
         status: 'completed',
         txid,
+        resolvedManually: true,
         resolvedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
-      console.log(`[resolve-stuck] Firestore updated`);
     } catch (fbErr) {
-      // Firestore error tidak fatal — payment sudah selesai di Pi
       console.warn(`[resolve-stuck] Firestore update gagal (non-fatal):`, fbErr.message);
     }
 
-    console.log(`[resolve-stuck] ✅ Selesai! paymentId=${paymentId} txid=${txid}`);
+    console.log(`[resolve-stuck] ✅ Done! paymentId=${paymentId} txid=${txid}`);
     return res.status(200).json({ success: true, paymentId, txid });
 
   } catch (err) {
