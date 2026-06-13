@@ -14,7 +14,7 @@
       s.src = 'https://sdk.minepi.com/pi-sdk.js';
       s.onload = function() {
         if (typeof Pi !== 'undefined') {
-          Pi.init({ version: "2.0", sandbox: true });
+          Pi.init({ version: "2.0", sandbox: false });
         }
       };
       document.head.appendChild(s);
@@ -753,7 +753,7 @@
     <div style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;color:#ddeeff;margin-bottom:8px;">Login dengan Pi Network</div>
     <div style="font-size:12px;color:#6a8aaa;margin-bottom:20px;line-height:1.6;">Gunakan username Pi-mu untuk masuk.<br>Saldo SGT & progress tersimpan otomatis.</div>
     <button id="pi-login-btn" onclick="piAuthAndLogin()" style="width:100%;padding:16px;background:linear-gradient(135deg,#6c2bff,#00c6ff);border:none;border-radius:14px;color:#fff;font-family:'Orbitron',monospace;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 6px 24px rgba(108,43,255,0.5);transition:all 0.2s;">
-      π  MASUK DENGAN PI
+      MASUK DENGAN PI
     </button>
     <div id="pi-login-status" style="margin-top:12px;font-size:11px;color:#6a8aaa;min-height:18px;"></div>
     <div id="pi-login-fallback" style="display:none;margin-top:14px;">
@@ -771,7 +771,7 @@
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-header">
-      <div class="modal-title">π Top-Up SGT</div>
+      <div class="modal-title">Top-Up SGT</div>
       <div class="modal-close" onclick="closeTopUp()">✕</div>
     </div>
     <div style="padding:0 20px 24px;">
@@ -798,7 +798,7 @@
         </div>
       </div>
       <button id="topup-confirm-btn" onclick="doTopUp()" disabled style="width:100%;padding:15px;background:linear-gradient(135deg,#6c2bff,#00c6ff);border:none;border-radius:14px;color:#fff;font-family:'Orbitron',monospace;font-size:13px;font-weight:900;cursor:pointer;box-shadow:0 6px 20px rgba(108,43,255,0.4);opacity:0.5;transition:all 0.2s;">
-        π BAYAR DENGAN PI
+        BAYAR DENGAN PI
       </button>
       <div style="font-size:10px;color:#3d5a78;text-align:center;margin-top:10px;">Pembayaran diproses via Pi Blockchain.<br>SGT masuk otomatis setelah konfirmasi.</div>
     </div>
@@ -860,7 +860,7 @@
   <div class="section-hd">
     <span>Pilih Game</span>
     <div class="line"></div>
-    <div class="sh-badge">9 Games</div>
+    <div class="sh-badge">8 Games</div>
   </div>
   <div class="game-grid">
     <div class="game-card card-2048" onclick="openGame('g2048')">
@@ -883,13 +883,6 @@
       <div class="card-icon-wrap"><span class="card-emoji">🔮</span></div>
       <h3 class="card-title-3d" style="--c1:#ff7a22;--c2:#ff3d00;">ORB BLAST</h3><p>Hancurkan rantai bola!</p>
       <span class="game-badge badge-orange">PvP · AI</span>
-    </div>
-    <div class="game-card card-runner" onclick="openGame('runner')">
-      <div class="card-glow" style="background:var(--green);"></div>
-      <div class="card-reward">+SGT</div>
-      <div class="card-icon-wrap"><span class="card-emoji">🏃</span></div>
-      <h3 class="card-title-3d" style="--c1:#00e87a;--c2:#007733;">DASH HERO</h3><p>Lompat & slide, hindari!</p>
-      <span class="game-badge badge-green">Tap · Viral</span>
     </div>
     <div class="game-card card-chess" onclick="openGame('chess')">
       <div class="card-glow" style="background:var(--gold);"></div>
@@ -1178,62 +1171,6 @@
       </div>
     </div>
     <canvas id="zuma-canvas" style="border-radius:12px;border:1px solid var(--border2);cursor:crosshair;box-shadow:0 0 20px rgba(255,122,34,0.1);display:block;width:100%;"></canvas>
-  </div>
-</div>
-
-<!-- ══ RUNNER SCREEN ══ -->
-<div class="game-screen" id="screen-runner">
-  <div class="screen-hd">
-    <button class="back-btn" onclick="backToLobby()">← Kembali</button>
-    <div class="screen-title">DASH HERO</div>
-    <div class="screen-sgt">🪙 <span id="sgt-runner">0</span></div>
-  </div>
-  <div class="bet-panel" id="bet-runner">
-    <div class="bet-panel-title">Setup Taruhan</div>
-    <div class="mode-row">
-      <button class="mode-btn active" onclick="setMode('runner','pvp',this)">👥 vs Pemain</button>
-      <button class="mode-btn" onclick="setMode('runner','ai',this)">🤖 vs AI</button>
-    </div>
-    <div class="bet-label">Jumlah Taruhan</div>
-    <div class="bet-input-wrap">
-      <span class="currency">SGT</span>
-      <input class="bet-input" type="number" id="bet-runner-amt" value="5" min="1" max="500">
-      <span class="bet-max" onclick="document.getElementById('bet-runner-amt').value=sgtBalance;updateBetInfo('runner')">MAX</span>
-    </div>
-    <div class="bet-presets">
-      <button class="preset" onclick="setBet('runner',1)">1</button>
-      <button class="preset" onclick="setBet('runner',5)">5</button>
-      <button class="preset" onclick="setBet('runner',10)">10</button>
-      <button class="preset" onclick="setBet('runner',25)">25</button>
-    </div>
-    <div class="bet-summary">
-      <div class="bet-summary-item"><div class="bs-label">Taruhan</div><div class="bs-val gold" id="bi-runner-amt">5</div></div>
-      <div class="bet-summary-item"><div class="bs-label">Potensi Menang</div><div class="bs-val green" id="bi-runner-win">9.50</div></div>
-    </div>
-    <button class="start-btn" onclick="startRunner()">▶ MULAI GAME</button>
-  </div>
-  <div id="runner-game" style="display:none;">
-    <div class="powerup-bar">
-      <div class="pu-pill" id="pu-shield-runner" onclick="usePowerup('shield','runner')">🛡️ <span class="pu-name">Shield</span> <span class="pu-count" id="pu-shield-cnt-runner">0</span></div>
-      <div class="pu-pill" id="pu-2x-runner" onclick="usePowerup('2x','runner')">⚡ <span class="pu-name">2x SGT</span> <span class="pu-count" id="pu-2x-cnt-runner">0</span></div>
-      <div class="pu-pill" id="pu-slow-runner" onclick="usePowerup('slow','runner')">🐢 <span class="pu-name">Slow</span> <span class="pu-count" id="pu-slow-cnt-runner">0</span></div>
-    </div>
-    <div id="rn-ai-panel" style="display:none;background:rgba(255,61,90,0.1);border:1px solid rgba(255,61,90,0.3);border-radius:10px;padding:6px 14px;margin-bottom:8px;align-items:center;gap:12px;font-size:12px;">
-      <span style="color:#ff6b6b;">🤖 AI: <strong id="rn-ai-score">0</strong></span>
-      <span id="rn-ai-hint" style="color:var(--accent);">⚡ Kejar terus!</span>
-    </div>
-    <div class="game-stats">
-      <div class="stat-chip"><div class="sv" style="color:var(--green);" id="rn-score">0</div><div class="sl">Score</div></div>
-      <div class="stat-chip"><div class="sv" id="rn-dist">0</div><div class="sl">Dist</div></div>
-      <div class="stat-chip"><div class="sv" style="color:var(--gold);" id="rn-level">1</div><div class="sl">Level</div></div>
-      <div class="stat-chip"><div class="sv" style="color:var(--gold);" id="rn-bet-disp">0</div><div class="sl">SGT</div></div>
-    </div>
-    <canvas id="rn-canvas" style="border-radius:12px;border:1px solid var(--border2);box-shadow:0 0 20px rgba(0,232,122,0.08);display:block;width:100%;cursor:pointer;"></canvas>
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button onclick="rnJump()" style="flex:1;padding:14px;background:linear-gradient(135deg,var(--green),#006633);border:none;border-radius:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,232,122,0.3);">⬆ LOMPAT</button>
-      <button onclick="rnSlide()" style="flex:1;padding:14px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:14px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(108,43,255,0.3);">⬇ SLIDE</button>
-    </div>
-    <p style="font-size:10px;color:var(--text3);text-align:center;margin-top:6px;">Space/↑ = Lompat · ↓/Shift = Slide</p>
   </div>
 </div>
 
