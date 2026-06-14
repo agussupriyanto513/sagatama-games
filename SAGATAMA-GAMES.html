@@ -1832,11 +1832,12 @@ async function piAuthAndLogin() {
     // 2. Kirim accessToken ke backend untuk verifikasi & dapat Firebase custom token
     let firebaseToken = null;
     try {
-      const resp = await fetch('https://sagatama-games.vercel.app/api/pi-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken: piAccessToken, uid: window.piUID, username: window.piUsername })
-      });
+      //  KODE BARU YANG BENAR (Menembak ke BACKEND_URL pusat):
+const resp = await fetch(`${BACKEND_URL}/api/pi-auth`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ accessToken: piAccessToken, uid: window.piUID, username: window.piUsername })
+});
       if (resp.ok) {
         const data = await resp.json();
         firebaseToken = data.firebaseToken;
@@ -1999,11 +2000,13 @@ async function sendWelcomeBonus() {
     if (!snap.exists()) return;
     if (snap.data().welcomeBonusSent === true) return; // sudah pernah dapat
     console.log('[welcome-bonus] User baru, kirim Pi bonus...');
-    const resp = await fetch('https://sagatama-games.vercel.app/api/payments/welcome-bonus', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: fbUid, piUid: window.piUID })
-    });
+    // 🎯 SEBELUMNYA: fetch('https://sagatama-games.vercel.app/api/payments/welcome-bonus', {
+// 🎯 DIUBAH MENJADI:
+const resp = await fetch(`${BACKEND_URL}/api/payments/welcome-bonus`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ uid: fbUid, piUid: window.piUID })
+});
     const result = await resp.json();
     if (result.success) {
       sgtBalance += result.sgtBonus || 50;
