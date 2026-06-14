@@ -1692,6 +1692,52 @@
 
 <!-- FIREBASE SDK -->
 <script type="module">
+
+// ── KONEKTOR VERCEL LANGSUNG DI DALAM HTML ──
+const BACKEND_URL = "https://sagatama-backend.vercel.app";
+
+window.panggilAPI = async function(endpoint, body) {
+  try {
+    const auth = window.auth || (window.firebase && window.firebase.auth());
+    const user = auth ? auth.currentUser : null;
+
+    let idToken = "";
+    
+    if (user) {
+      idToken = await user.getIdToken();
+    } else {
+      if (!body.uid) body.uid = "TES_USER_MANUAL"; 
+    }
+
+    if (user && !body.uid) {
+      body.uid = user.uid;
+    }
+
+    // Eksekusi tembakan ke server pusat
+    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    
+    if (!res.ok) {
+      alert("⚠️ Eror dari Server Backend: " + (data.error || "Gagal memproses"));
+      throw new Error(data.error || "Terjadi kesalahan pada server backend.");
+    }
+
+    return data;
+
+  } catch (error) {
+    alert("🚨 Kegagalan Sistem Frontend:\n" + error.message);
+    throw error;
+  }
+}
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
@@ -3518,6 +3564,50 @@ function initGameHub(){
   if(ownedItems.boosts){ownedItems.boosts.forEach(b=>{if(b.expiresAt&&Date.now()>b.expiresAt)b.active=false;});saveOwned();}
 }
 document.addEventListener('DOMContentLoaded',initGameHub);
+
+// ── FUNGSI KLAIM BACKEND DISELARASKAN ──
+
+async function claimWelcomeBonus() {
+  try {
+    if (typeof toast === "function") toast('⏳ Memproses Welcome Bonus...', 'default');
+    
+    // Diseragamkan menuju endpoint ensure / pendaftaran awal
+    const respon = await window.panggilAPI('/api/players/ensure', {
+      uid: window.fbUid || "TES_USER_MANUAL",
+      username: "Sagatama Player"
+    });
+
+    if (respon && respon.success) {
+      if (typeof toast === "function") toast('🎉 Akun Berhasil Disinkronkan!', 'success');
+      if (typeof loadSGT === "function") loadSGT(); 
+    }
+  } catch (error) {
+    alert("🚨 Gagal klaim bonus: " + error.message);
+  }
+}
+
+async function claimLevelBonus() {
+  try {
+    if (typeof toast === "function") toast('⏳ Memproses Bonus Level...', 'default');
+
+    // Menembak endpoint level-bonus yang ada di backend vercel kamu
+    const respon = await window.panggilAPI('/api/games/level-bonus', {
+      uid: window.fbUid || "TES_USER_MANUAL",
+      bonus_amount: 10 // sesuaikan jumlah bonusnya di sini
+    });
+
+    if (respon && respon.success) {
+      if (typeof toast === "function") toast('💰 Bonus Level Berhasil Ditambahkan!', 'success');
+      if (typeof loadSGT === "function") loadSGT(); 
+    }
+  } catch (error) {
+    alert("🚨 Gagal memproses bonus level: " + error.message);
+  }
+}
+
+// Daftarkan kembali ke window agar tombol lama di HTML tetap mengenalnya
+window.claimWelcomeBonus = claimWelcomeBonus;
+window.claimLevelBonus = claimLevelBonus;
 
 // ── EXPOSE ALL ──
 window.connectWallet=connectWallet;window.claimDaily=claimDaily;window.claimLevelBonus=claimLevelBonus;
