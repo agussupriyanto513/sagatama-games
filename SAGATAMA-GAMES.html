@@ -1750,20 +1750,22 @@ async function piAuthAndLogin() {
   if (loginStatus) loginStatus.textContent = 'Menghubungkan ke Pi Network...';
 
   try {
-    // Tunggu Pi SDK siap maksimal 5 detik
+    // Tunggu Pi SDK siap — Pi Browser inject SDK secara async, maks 8 detik
     if (typeof window.Pi === 'undefined') {
+      if (loginStatus) loginStatus.textContent = 'Menunggu Pi SDK...';
       await new Promise((resolve, reject) => {
         let tries = 0;
         const check = setInterval(() => {
           tries++;
           if (typeof window.Pi !== 'undefined') {
             clearInterval(check);
+            console.log('[piAuth] Pi SDK ready setelah', tries * 150, 'ms');
             resolve();
-          } else if (tries > 50) {
+          } else if (tries > 53) { // ~8 detik (53 × 150ms)
             clearInterval(check);
-            reject(new Error('Pi SDK tidak tersedia. Buka di Pi Browser.'));
+            reject(new Error('Pi SDK timeout. Pastikan app Pi Network versi terbaru.'));
           }
-        }, 100);
+        }, 150);
       });
     }
 
@@ -1836,12 +1838,20 @@ async function piAuthAndLogin() {
   } catch(e) {
     console.error('Pi Auth error:', e);
     if (loginBtn) loginBtn.disabled = false;
-    const isNoBrowser = e.message && e.message.includes('Pi Browser');
-    const msg = isNoBrowser ? 'Buka di Pi Browser!' : 'Login gagal, coba lagi.';
+    const isTimeout   = e.message && e.message.includes('timeout');
+    const isNoBrowser = e.message && (e.message.includes('Pi Browser') || e.message.includes('Pi SDK'));
+    let msg;
+    if (isTimeout) {
+      msg = 'Pi SDK timeout. Coba tutup & buka ulang Pi Browser, lalu tap "Masuk dengan Pi" lagi.';
+    } else if (isNoBrowser) {
+      msg = 'Buka di Pi Browser!';
+    } else {
+      msg = 'Login gagal: ' + (e.message || 'Coba lagi.');
+    }
     if (loginStatus) loginStatus.textContent = '⚠️ ' + msg;
     fbSetStatus(false, 'Auth Error');
     const fallback = document.getElementById('pi-login-fallback');
-    if (isNoBrowser && fallback) fallback.style.display = 'block';
+    if (fallback) fallback.style.display = 'block';
   }
 }
 window.piAuthAndLogin = piAuthAndLogin;
@@ -1961,19 +1971,51 @@ async function sendWelcomeBonus() {
 }
 window.sendWelcomeBonus = sendWelcomeBonus;
 
-// Auto-coba login saat halaman dibuka (jika sudah di Pi Browser)
+// ── Deteksi apakah environment ini adalah Pi Browser ──
+function isPiBrowserEnv() {
+  const ua = navigator.userAgent || '';
+  const host = window.location.hostname || '';
+  return (
+    ua.includes('PiBrowser') ||
+    ua.includes('Pi App') ||
+    host.endsWith('pinet.pi') ||
+    host.endsWith('minepi.com') ||
+    typeof window.Pi !== 'undefined'
+  );
+}
+
+// Auto-login saat halaman dibuka — pakai polling agar tunggu Pi SDK inject async
 window.addEventListener('DOMContentLoaded', () => {
   showLoginSplash();
-  if (typeof window.Pi !== 'undefined') {
-    // Sudah di Pi Browser, langsung autentikasi
-    setTimeout(piAuthAndLogin, 600);
-  } else {
-    // Bukan Pi Browser: tampilkan opsi mode tamu setelah cek singkat
-    const loginStatus = document.getElementById('pi-login-status');
+
+  const loginStatus = document.getElementById('pi-login-status');
+  const fallback    = document.getElementById('pi-login-fallback');
+
+  // Jika jelas bukan Pi Browser (UA tidak cocok), langsung tampil fallback
+  if (!isPiBrowserEnv()) {
     if (loginStatus) loginStatus.textContent = 'Pi Browser tidak terdeteksi.';
-    const fallback = document.getElementById('pi-login-fallback');
     if (fallback) fallback.style.display = 'block';
+    return;
   }
+
+  // Kita di Pi Browser — tapi Pi SDK mungkin belum di-inject.
+  // Polling tiap 150ms, maks 6 detik.
+  if (loginStatus) loginStatus.textContent = 'Menunggu Pi SDK...';
+  let tries = 0;
+  const MAX_TRIES = 40; // 40 × 150ms = 6 detik
+  const pollPi = setInterval(() => {
+    tries++;
+    if (typeof window.Pi !== 'undefined') {
+      clearInterval(pollPi);
+      if (loginStatus) loginStatus.textContent = 'Pi SDK siap, autentikasi...';
+      setTimeout(piAuthAndLogin, 300);
+    } else if (tries >= MAX_TRIES) {
+      clearInterval(pollPi);
+      // SDK tidak muncul dalam 6 detik — tetap di Pi Browser tapi SDK timeout
+      if (loginStatus) loginStatus.textContent = '⚠️ Pi SDK timeout. Coba tap "Masuk dengan Pi" manual.';
+      if (fallback) fallback.style.display = 'block';
+    }
+  }, 150);
 });
 
 // ── LOAD MY DATA ──
