@@ -19,7 +19,7 @@ window.panggilAPI = async function(endpoint, body) {
       body.uid = user.uid;
     }
 
-    // Eksekusi pengiriman data ke server Vercel
+    // Menggunakan BACKEND_URL secara absolut menuju server backend pusat
     const res = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
       headers: {
@@ -32,15 +32,13 @@ window.panggilAPI = async function(endpoint, body) {
     const data = await res.json();
     
     if (!res.ok) {
-      // Jika Vercel menolak, langsung munculkan pesan eror dari server di layar HP
-      alert("⚠️ Eror dari Server Vercel: " + (data.error || "Gagal memproses backend"));
+      alert("⚠️ Eror dari Server Backend: " + (data.error || "Gagal memproses"));
       throw new Error(data.error || "Terjadi kesalahan pada server backend.");
     }
 
     return data;
 
   } catch (error) {
-    // Perangkap Eror: Memaksa browser HP menampilkan kenapa data gagal terkirim
     alert("🚨 Kegagalan Sistem Frontend:\n" + error.message);
     throw error;
   }
