@@ -1702,7 +1702,6 @@ window.panggilAPI = async function(endpoint, body) {
     const user = auth ? auth.currentUser : null;
 
     let idToken = "";
-    
     if (user) {
       idToken = await user.getIdToken();
     } else {
@@ -1713,7 +1712,6 @@ window.panggilAPI = async function(endpoint, body) {
       body.uid = user.uid;
     }
 
-    // Eksekusi tembakan ke server pusat
     const res = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: "POST",
       headers: {
@@ -1723,17 +1721,26 @@ window.panggilAPI = async function(endpoint, body) {
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
-    
-    if (!res.ok) {
-      alert("⚠️ Eror dari Server Backend: " + (data.error || "Gagal memproses"));
-      throw new Error(data.error || "Terjadi kesalahan pada server backend.");
+    // JIKA SERVER MERESPONS DENGAN STATUS SUKSES (200 OK)
+    if (res.ok) {
+      const textData = await res.text();
+      try {
+        return textData ? JSON.parse(textData) : { success: true };
+      } catch (e) {
+        return { success: true }; // Fallback aman jika respons bukan format JSON
+      }
     }
 
-    return data;
+    // Jika statusnya memang eror dari server (400, 405, 500)
+    const errorData = await res.json().catch(() => ({}));
+    alert("⚠️ Eror dari Server Backend: " + (errorData.error || "Gagal memproses"));
+    throw new Error(errorData.error || "Terjadi kesalahan pada server backend.");
 
   } catch (error) {
-    alert("🚨 Kegagalan Sistem Frontend:\n" + error.message);
+    // HANYA munculkan alert jika benar-benar gagal koneksi internet (Failed to fetch)
+    if (error.message.includes("Fetch") || error.message.includes("Network")) {
+      alert("🚨 Kegagalan Sistem Frontend:\n" + error.message);
+    }
     throw error;
   }
 }
