@@ -19,6 +19,12 @@
     },
     "api/payments/payout.js": {
       "maxDuration": 30
+    },
+    "api/players/ensure.js": {
+      "maxDuration": 10
+    },
+    "api/games/save-progress.js": {
+      "maxDuration": 10
     }
   },
   "routes": [
@@ -28,6 +34,8 @@
     { "src": "/api/pi-payment/cancel",     "dest": "/api/payments/cancel.js" },
     { "src": "/api/pi-payment/incomplete", "dest": "/api/payments/incomplete.js" },
     { "src": "/api/pi-payment/payout",    "dest": "/api/payments/payout.js" },
+    { "src": "/api/players/ensure",        "dest": "/api/players/ensure.js" },
+    { "src": "/api/games/save-progress",   "dest": "/api/games/save-progress.js" },
     { "src": "/validation-key.txt",     "dest": "/validation-key.txt" },
     { "src": "/.well-known/(.*)",          "dest": "/.well-known/$1" },
     { "src": "/",                          "dest": "/SAGATAMA-GAMES.html" },

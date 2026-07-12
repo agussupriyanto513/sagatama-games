@@ -22,4 +22,24 @@ function getFirebaseApp() {
   });
 }
 
-export { admin, getFirebaseApp };
+// Verifikasi Firebase ID token dari header Authorization: Bearer <token>
+// Mengembalikan decoded token (berisi uid asli) atau null jika tidak valid.
+// Dipakai supaya endpoint pembayaran tidak bisa "dipalsukan" dengan mengirim
+// uid siapa saja lewat body request.
+async function verifyAuth(req) {
+  try {
+    const header = req.headers.authorization || '';
+    const match = header.match(/^Bearer (.+)$/);
+    if (!match) return null;
+    const token = match[1].trim();
+    if (!token) return null;
+    getFirebaseApp();
+    const decoded = await admin.auth().verifyIdToken(token);
+    return decoded; // decoded.uid = Firebase UID asli si pemanggil
+  } catch (e) {
+    console.warn('[verifyAuth] Token tidak valid:', e.message);
+    return null;
+  }
+}
+
+export { admin, getFirebaseApp, verifyAuth };
