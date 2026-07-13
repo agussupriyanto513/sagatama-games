@@ -84,6 +84,11 @@ async function handleApprove(req, res) {
   };
 
   try {
+    // ── DEBUG SEMENTARA: cek apakah PI_API_KEY terbaca dengan benar ──
+    const _key = process.env.PI_API_KEY || '';
+    console.log(`[DEBUG-approve] PI_API_KEY length=${_key.length} preview="${_key.slice(0, 4)}...${_key.slice(-4)}"`);
+    console.log(`[DEBUG-approve] FIREBASE_PROJECT_ID="${process.env.FIREBASE_PROJECT_ID || '(kosong)'}"`);
+
     const piResp = await fetch(
       `https://api.minepi.com/v2/payments/${paymentId}/approve`,
       {
