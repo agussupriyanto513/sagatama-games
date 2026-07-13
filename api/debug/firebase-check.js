@@ -33,6 +33,8 @@ function inspectPrivateKeyRaw() {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
   const result = {
     step: 'start',
     env: {
@@ -54,6 +56,19 @@ export default async function handler(req, res) {
     result.step = 'create_custom_token (local signing only, no Google network call)';
     const testToken = await admin.auth().createCustomToken('diag_test_uid');
     result.customTokenCreated = !!testToken;
+
+    result.step = 'parse_private_key_with_node_crypto (structural PEM validity check)';
+    const crypto = await import('node:crypto');
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+    privateKey = privateKey.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
+    crypto.createPrivateKey(privateKey); // throws if PEM is structurally broken
+    result.privateKeyPemValid = true;
+
+    result.step = 'exchange_credential_for_google_oauth_token (THIS is where a wrong/revoked/mismatched key fails)';
+    const app = getFirebaseApp();
+    const tokenResult = await app.options.credential.getAccessToken();
+    result.oauthTokenObtained = !!tokenResult.access_token;
+    result.oauthTokenExpiresInSeconds = tokenResult.expires_in;
 
     result.step = 'firestore_read (REQUIRES valid OAuth to Google servers)';
     const snap = await admin.firestore().collection('_diagnostic_ping').limit(1).get();
