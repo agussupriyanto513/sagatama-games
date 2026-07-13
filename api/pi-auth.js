@@ -1,16 +1,17 @@
 // /api/payments/pi-auth.js
 // Verifikasi Pi Network accessToken → buat Firebase Custom Token
-import admin from "firebase-admin";
+import { admin, getFirebaseApp } from "../firebase-init.js";
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId:   process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-    })
-  });
-}
+// PENTING: pakai helper bersama (getFirebaseApp) supaya project ID & kredensial
+// SELALU sama persis dengan endpoint lain (api/players/ensure.js, dll).
+// Sebelumnya file ini punya inisialisasi admin.initializeApp() sendiri yang
+// TIDAK membersihkan tanda kutip liar pada env var (FIREBASE_PROJECT_ID /
+// FIREBASE_CLIENT_EMAIL). Kalau env var di Vercel ke-paste dengan tanda kutip
+// ikut terbawa, custom token yang dibuat di sini jadi ditandatangani untuk
+// project ID yang berbeda dari project di frontend (SAGATAMA-GAMES.html),
+// dan Firebase menolaknya di client dengan error
+// "auth/custom-token-mismatch" — persis seperti yang dilaporkan.
+getFirebaseApp();
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
