@@ -13,6 +13,12 @@ getFirebaseApp();
 
 // ── Helper bersama: fetch ke Pi Platform API, handle response non-JSON ──
 async function piRequest(url, options = {}) {
+  // ── DEBUG SEMENTARA: cek apakah PI_API_KEY terbaca dengan benar ──
+  // Aman ditampilkan di log karena cuma nunjukin panjang & beberapa
+  // karakter pertama/terakhir, bukan key lengkap.
+  const _key = process.env.PI_API_KEY || '';
+  console.log(`[DEBUG] PI_API_KEY length=${_key.length} preview="${_key.slice(0, 4)}...${_key.slice(-4)}"`);
+
   const resp = await fetch(url, {
     ...options,
     headers: {
