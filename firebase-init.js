@@ -17,6 +17,9 @@ function getFirebaseApp() {
   const projectId = (process.env.FIREBASE_PROJECT_ID || '').replace(/^["']|["']$/g, '');
   const clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || '').replace(/^["']|["']$/g, '');
 
+  // ── DEBUG SEMENTARA: cek env var mana yang kosong ──
+  console.log(`[DEBUG-firebase-init] projectId="${projectId || '(KOSONG)'}" clientEmail_length=${clientEmail.length} privateKey_length=${privateKey.length} privateKey_hasBeginMarker=${privateKey.includes('BEGIN PRIVATE KEY')}`);
+
   return admin.initializeApp({
     credential: admin.credential.cert({ projectId, clientEmail, privateKey })
   });
