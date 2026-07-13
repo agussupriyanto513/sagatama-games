@@ -998,6 +998,10 @@
       <button class="wallet-btn" onclick="connectWallet()">Connect</button>
     </div>
 
+    <button id="logout-btn" onclick="logoutUser()" style="width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg, rgba(255,61,90,0.1), rgba(255,61,90,0.04));border:1px solid rgba(255,61,90,0.28);border-radius:14px;color:var(--red);font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:1.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.25s;backdrop-filter:blur(10px);" onmouseover="this.style.background='rgba(255,61,90,0.16)';this.style.borderColor='rgba(255,61,90,0.5)';this.style.boxShadow='0 0 20px rgba(255,61,90,0.15)'" onmouseout="this.style.background='linear-gradient(135deg, rgba(255,61,90,0.1), rgba(255,61,90,0.04))';this.style.borderColor='rgba(255,61,90,0.28)';this.style.boxShadow='none'">
+      <i class="fas fa-arrow-right-from-bracket"></i> LOGOUT
+    </button>
+
     <!-- DAILY REWARD -->
     <div class="daily-card" id="daily-reward-card" onclick="claimDaily()">
       <div class="daily-icon">🎁</div>
@@ -1807,6 +1811,36 @@ function hideLoginSplash() {
   if (splash) splash.style.display = 'none';
   if (lobby) lobby.style.display = 'block';
 }
+
+// ── LOGOUT ──
+async function logoutUser() {
+  const ok = confirm('Yakin mau keluar? Progres game & saldo SGT sudah tersimpan otomatis, aman untuk logout.');
+  if (!ok) return;
+  try {
+    const { signOut } = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js");
+    await signOut(auth);
+  } catch (e) {
+    console.warn('[logout] signOut error (lanjut tetap logout lokal):', e.message);
+  }
+
+  // Bersihkan semua state sesi lokal
+  fbUid = null;
+  piAccessToken = null;
+  window._fbUid = null;
+  window.piUID = null;
+  window.piUsername = null;
+  window.walletConnected = false;
+  ['sgt_balance','gh_level','gh_xp','gh_streak','gh_lastlogin','gh_owned'].forEach(k => localStorage.removeItem(k));
+
+  fbSetStatus(false, 'Logged out');
+  toast('👋 Berhasil logout', 'blue');
+
+  // Kembali ke splash login supaya user bisa login ulang (Pi / mode tamu)
+  const loginStatus = document.getElementById('pi-login-status');
+  if (loginStatus) loginStatus.textContent = '';
+  showLoginSplash();
+}
+window.logoutUser = logoutUser;
 
 // ── PI AUTHENTICATE → FIREBASE CUSTOM TOKEN ──
 // Backend kamu harus menyediakan endpoint ini:
