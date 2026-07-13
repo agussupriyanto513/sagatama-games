@@ -1746,6 +1746,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+window.auth = auth; // penting: panggilAPI() butuh window.auth untuk ambil ID token user yang sedang login
 
 // ══════════════════════════════════════════════════
 // PI NETWORK AUTH — Login wajib pakai Pi Username
@@ -2060,16 +2061,18 @@ window.addEventListener('DOMContentLoaded', () => {
   const loginStatus = document.getElementById('pi-login-status');
   const fallback    = document.getElementById('pi-login-fallback');
 
-  // Jika jelas bukan Pi Browser (UA tidak cocok), langsung tampil fallback
-  if (!isPiBrowserEnv()) {
-    if (loginStatus) loginStatus.textContent = 'Pi Browser tidak terdeteksi.';
-    if (fallback) fallback.style.display = 'block';
-    return;
+  // CATATAN: sebelumnya di sini ada pengecekan isPiBrowserEnv() yang langsung
+  // menampilkan fallback tanpa mencoba SDK sama sekali kalau UA tidak cocok
+  // persis dengan "PiBrowser"/"Pi App". Karena string UA Pi Browser bisa
+  // bervariasi antar versi, ini menyebabkan sebagian user di Pi Browser asli
+  // gagal login otomatis. Sekarang kita SELALU polling window.Pi dulu;
+  // isPiBrowserEnv() cuma dipakai untuk mempercepat pesan status, bukan untuk
+  // menghentikan proses.
+  if (loginStatus) {
+    loginStatus.textContent = isPiBrowserEnv()
+      ? 'Menunggu Pi SDK...'
+      : 'Mendeteksi Pi Browser...';
   }
-
-  // Kita di Pi Browser — tapi Pi SDK mungkin belum di-inject.
-  // Polling tiap 150ms, maks 6 detik.
-  if (loginStatus) loginStatus.textContent = 'Menunggu Pi SDK...';
   let tries = 0;
   const MAX_TRIES = 40; // 40 × 150ms = 6 detik
   const pollPi = setInterval(() => {
