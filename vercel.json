@@ -2,22 +2,10 @@
   "version": 2,
   "outputDirectory": ".",
   "functions": {
+    "api/payments/index.js": {
+      "maxDuration": 30
+    },
     "api/pi-auth.js": {
-      "maxDuration": 30
-    },
-    "api/payments/approve.js": {
-      "maxDuration": 10
-    },
-    "api/payments/complete.js": {
-      "maxDuration": 30
-    },
-    "api/payments/cancel.js": {
-      "maxDuration": 10
-    },
-    "api/payments/incomplete.js": {
-      "maxDuration": 30
-    },
-    "api/payments/payout.js": {
       "maxDuration": 30
     },
     "api/players/ensure.js": {
@@ -25,40 +13,35 @@
     },
     "api/games/save-progress.js": {
       "maxDuration": 10
-    },
-    "api/games/daily-reward.js": {
-      "maxDuration": 10
-    },
-    "api/games/level-bonus.js": {
-      "maxDuration": 10
-    },
-    "api/games/win.js": {
-      "maxDuration": 10
-    },
-    "api/games/shop-buy.js": {
-      "maxDuration": 10
     }
   },
   "routes": [
-    { "src": "/api/pi-auth",               "dest": "/api/pi-auth.js" },
-    { "src": "/api/pi-payment/approve",    "dest": "/api/payments/approve.js" },
-    { "src": "/api/pi-payment/complete",   "dest": "/api/payments/complete.js" },
-    { "src": "/api/pi-payment/cancel",     "dest": "/api/payments/cancel.js" },
-    { "src": "/api/pi-payment/incomplete", "dest": "/api/payments/incomplete.js" },
-    { "src": "/api/pi-payment/payout",    "dest": "/api/payments/payout.js" },
-    { "src": "/api/payments/welcome-bonus", "dest": "/api/payments/welcome-bonus.js" },
-    { "src": "/api/players/ensure",        "dest": "/api/players/ensure.js" },
-    { "src": "/api/games/save-progress",   "dest": "/api/games/save-progress.js" },
-    { "src": "/api/games/daily-reward",    "dest": "/api/games/daily-reward.js" },
-    { "src": "/api/games/level-bonus",     "dest": "/api/games/level-bonus.js" },
-    { "src": "/api/games/win",             "dest": "/api/games/win.js" },
-    { "src": "/api/games/shop-buy",        "dest": "/api/games/shop-buy.js" },
-    { "src": "/validation-key.txt",     "dest": "/validation-key.txt" },
-    { "src": "/.well-known/(.*)",          "dest": "/.well-known/$1" },
-    { "src": "/",                          "dest": "/SAGATAMA-GAMES.html" },
-    { "src": "/games",                     "dest": "/SAGATAMA-GAMES.html" },
-    { "src": "/terms",                     "dest": "/terms-privacy.html" },
-    { "src": "/(.*)\\.html",               "dest": "/$1.html" },
-    { "src": "/(.*)",                      "dest": "/$1" }
+    { "src": "/api/pi-auth",                    "dest": "/api/pi-auth.js" },
+
+    { "src": "/api/payments/approve",           "dest": "/api/payments/index.js?action=approve" },
+    { "src": "/api/payments/cancel-stuck",      "dest": "/api/payments/index.js?action=cancel-stuck" },
+    { "src": "/api/payments/cancel",            "dest": "/api/payments/index.js?action=cancel" },
+    { "src": "/api/payments/complete",          "dest": "/api/payments/index.js?action=complete" },
+    { "src": "/api/payments/incomplete",        "dest": "/api/payments/index.js?action=incomplete" },
+    { "src": "/api/payments/payout",            "dest": "/api/payments/index.js?action=payout" },
+    { "src": "/api/payments/resolve-stuck",     "dest": "/api/payments/index.js?action=resolve-stuck" },
+    { "src": "/api/payments/welcome-bonus",     "dest": "/api/payments/index.js?action=welcome-bonus" },
+
+    { "src": "/api/pi-payment/approve",         "dest": "/api/payments/index.js?action=approve" },
+    { "src": "/api/pi-payment/complete",        "dest": "/api/payments/index.js?action=complete" },
+    { "src": "/api/pi-payment/cancel",          "dest": "/api/payments/index.js?action=cancel" },
+    { "src": "/api/pi-payment/incomplete",      "dest": "/api/payments/index.js?action=incomplete" },
+    { "src": "/api/pi-payment/payout",          "dest": "/api/payments/index.js?action=payout" },
+
+    { "src": "/api/players/ensure",             "dest": "/api/players/ensure.js" },
+    { "src": "/api/games/save-progress",        "dest": "/api/games/save-progress.js" },
+
+    { "src": "/validation-key.txt",             "dest": "/validation-key.txt" },
+    { "src": "/.well-known/(.*)",                "dest": "/.well-known/$1" },
+    { "src": "/",                                "dest": "/SAGATAMA-GAMES.html" },
+    { "src": "/games",                           "dest": "/SAGATAMA-GAMES.html" },
+    { "src": "/terms",                           "dest": "/terms-privacy.html" },
+    { "src": "/(.*)\\.html",                     "dest": "/$1.html" },
+    { "src": "/(.*)",                            "dest": "/$1" }
   ]
 }
