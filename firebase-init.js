@@ -2,10 +2,16 @@
 import admin from "firebase-admin";
 
 function getFirebaseApp() {
+  // ── DEBUG SEMENTARA: selalu print, baik warm maupun cold start ──
+  const _pk = process.env.FIREBASE_PRIVATE_KEY || '';
+  const _ce = process.env.FIREBASE_CLIENT_EMAIL || '';
+  const _pid = process.env.FIREBASE_PROJECT_ID || '';
+  console.log(`[DEBUG-firebase-init] alreadyInitialized=${admin.apps.length > 0} projectId="${_pid || '(KOSONG)'}" clientEmail_length=${_ce.length} privateKey_length=${_pk.length} privateKey_hasBeginMarker=${_pk.includes('BEGIN PRIVATE KEY')}`);
+
   if (admin.apps.length) return admin.apps[0];
 
   // Decode private key — handle semua kemungkinan format Vercel
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+  let privateKey = _pk;
   
   // Hapus tanda kutip di awal/akhir jika ada
   privateKey = privateKey.replace(/^["']|["']$/g, '');
@@ -14,11 +20,8 @@ function getFirebaseApp() {
   privateKey = privateKey.replace(/\\n/g, '\n');
 
   // Hapus tanda kutip di project_id jika ada  
-  const projectId = (process.env.FIREBASE_PROJECT_ID || '').replace(/^["']|["']$/g, '');
-  const clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || '').replace(/^["']|["']$/g, '');
-
-  // ── DEBUG SEMENTARA: cek env var mana yang kosong ──
-  console.log(`[DEBUG-firebase-init] projectId="${projectId || '(KOSONG)'}" clientEmail_length=${clientEmail.length} privateKey_length=${privateKey.length} privateKey_hasBeginMarker=${privateKey.includes('BEGIN PRIVATE KEY')}`);
+  const projectId = _pid.replace(/^["']|["']$/g, '');
+  const clientEmail = _ce.replace(/^["']|["']$/g, '');
 
   return admin.initializeApp({
     credential: admin.credential.cert({ projectId, clientEmail, privateKey })
