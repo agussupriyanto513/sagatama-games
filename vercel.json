@@ -25,6 +25,18 @@
     },
     "api/games/save-progress.js": {
       "maxDuration": 10
+    },
+    "api/games/daily-reward.js": {
+      "maxDuration": 10
+    },
+    "api/games/level-bonus.js": {
+      "maxDuration": 10
+    },
+    "api/games/win.js": {
+      "maxDuration": 10
+    },
+    "api/games/shop-buy.js": {
+      "maxDuration": 10
     }
   },
   "routes": [
@@ -34,8 +46,13 @@
     { "src": "/api/pi-payment/cancel",     "dest": "/api/payments/cancel.js" },
     { "src": "/api/pi-payment/incomplete", "dest": "/api/payments/incomplete.js" },
     { "src": "/api/pi-payment/payout",    "dest": "/api/payments/payout.js" },
+    { "src": "/api/payments/welcome-bonus", "dest": "/api/payments/welcome-bonus.js" },
     { "src": "/api/players/ensure",        "dest": "/api/players/ensure.js" },
     { "src": "/api/games/save-progress",   "dest": "/api/games/save-progress.js" },
+    { "src": "/api/games/daily-reward",    "dest": "/api/games/daily-reward.js" },
+    { "src": "/api/games/level-bonus",     "dest": "/api/games/level-bonus.js" },
+    { "src": "/api/games/win",             "dest": "/api/games/win.js" },
+    { "src": "/api/games/shop-buy",        "dest": "/api/games/shop-buy.js" },
     { "src": "/validation-key.txt",     "dest": "/validation-key.txt" },
     { "src": "/.well-known/(.*)",          "dest": "/.well-known/$1" },
     { "src": "/",                          "dest": "/SAGATAMA-GAMES.html" },

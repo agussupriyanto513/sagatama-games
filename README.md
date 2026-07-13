@@ -16,7 +16,11 @@ sagatama-ecosystem/
 │   ├── players/
 │   │   └── ensure.js            # POST /api/players/ensure
 │   ├── games/
-│   │   └── save-progress.js     # POST /api/games/save-progress
+│   │   ├── save-progress.js     # POST /api/games/save-progress
+│   │   ├── daily-reward.js      # POST /api/games/daily-reward
+│   │   ├── level-bonus.js       # POST /api/games/level-bonus
+│   │   ├── win.js               # POST /api/games/win
+│   │   └── shop-buy.js          # POST /api/games/shop-buy
 │   └── payments/
 │       ├── approve.js           # POST /api/payments/approve
 │       ├── complete.js          # POST /api/payments/complete
@@ -45,7 +49,9 @@ Perbaikan berikut sudah diterapkan pada kode ini:
 - **Verifikasi identitas (auth)** — endpoint pembayaran (`approve`, `complete`, `payout`, `welcome-bonus`) sekarang memverifikasi Firebase ID token dari header `Authorization`, memastikan `uid` yang dikirim benar-benar milik pemanggil.
 - **Ukuran halaman** — logo yang sebelumnya di-embed berulang 4× sebagai base64 (≈480KB dari total 707KB) sekarang hanya disimpan sekali, mengurangi ukuran file dari 707KB → 342KB.
 
-**Belum tercakup (bisa dikerjakan berikutnya jika perlu):** endpoint `/api/games/win`, `/api/games/level-bonus`, `/api/games/daily-reward`, dan `/api/games/shop-buy` juga dipanggil oleh frontend tapi belum ada di backend — saat ini game tetap berjalan karena ada fallback lokal, tapi progres kemenangan/bonus level/hadiah harian belum tersinkron ke cloud lintas perangkat.
+- **Endpoint game yang hilang** — `/api/games/win`, `/api/games/level-bonus`, `/api/games/daily-reward`, dan `/api/games/shop-buy` dipanggil oleh frontend tapi filenya tidak ada, menyebabkan alert "Eror dari Server Backend: Gagal memproses" tiap kali diklaim/dimainkan. Keempat endpoint sudah dibuat, dengan Firestore transaction (`runTransaction`) supaya saldo SGT aman dari race condition dan tidak bisa dobel-klaim.
+
+> ⚠️ **Kalau setelah ini masih muncul error `16 UNAUTHENTICATED: Request had invalid authentication credentials...`** — itu BUKAN bug di kode, itu artinya `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` di Vercel → Settings → Environment Variables belum diisi/salah untuk environment **Production**. Cek ulang nilainya dari Firebase Console → Project Settings → Service Accounts → Generate new private key, lalu redeploy (env var baru tidak otomatis kepakai tanpa redeploy).
 
 
 
