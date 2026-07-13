@@ -1745,7 +1745,14 @@ window.panggilAPI = async function(endpoint, body) {
 
     // Jika statusnya memang eror dari server (400, 405, 500)
     const errorData = await res.json().catch(() => ({}));
-    alert("⚠️ Eror dari Server Backend: " + (errorData.error || "Gagal memproses"));
+    // Auto-login di background (saat halaman baru dibuka) tidak boleh nge-pop alert
+    // yang mengagetkan user sebelum mereka sempat klik apa pun. Alert cuma ditampilkan
+    // untuk aksi yang memang diminta user secara langsung (klik tombol, dsb).
+    if (!window._silentBackendCall) {
+      alert("⚠️ Eror dari Server Backend: " + (errorData.error || "Gagal memproses"));
+    } else {
+      console.warn('[panggilAPI] (silent) backend error:', errorData.error || 'Gagal memproses');
+    }
     throw new Error(errorData.error || "Terjadi kesalahan pada server backend.");
 
   } catch (error) {
@@ -2074,7 +2081,12 @@ window.addEventListener('DOMContentLoaded', () => {
     if (typeof window.Pi !== 'undefined') {
       clearInterval(pollPi);
       if (loginStatus) loginStatus.textContent = 'Pi SDK siap, autentikasi...';
-      setTimeout(piAuthAndLogin, 300);
+      setTimeout(() => {
+        // Tandai percobaan ini "silent": kalau gagal (mis. cold start server),
+        // jangan munculkan alert mengagetkan — cukup jatuh ke tombol login manual.
+        window._silentBackendCall = true;
+        piAuthAndLogin().finally(() => { window._silentBackendCall = false; });
+      }, 300);
     } else if (tries >= MAX_TRIES) {
       clearInterval(pollPi);
       // SDK tidak muncul dalam 6 detik — tetap di Pi Browser tapi SDK timeout
