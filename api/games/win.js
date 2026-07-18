@@ -1,16 +1,17 @@
 // /api/games/win.js
-// Simpan hasil satu ronde game (menang/kalah/seri) + update saldo SGT di
-// server. Endpoint ini sebelumnya HILANG dari backend padahal dipanggil oleh
-// showResult() di frontend setiap game selesai.
+// Simpan hasil satu ronde game (menang/kalah/seri) + update saldo SGT.
 //
-// Catatan alur saldo: taruhan (bet) sudah dikurangi duluan di sisi client
-// SEBELUM game dimulai (lihat currentBet di SAGATAMA-GAMES.html), tapi itu
-// TIDAK dikirim ke server saat itu juga. Jadi saldo di server masih "bersih"
-// (belum dipotong bet) sampai endpoint ini dipanggil. Makanya di sini kita
-// hitung: newBalance = saldoServer - bet_amount + earn_amount, supaya server
-// jadi sumber kebenaran yang benar, lalu client menimpa saldo lokalnya
-// dengan nilai dari server.
+// PERUBAHAN PENTING (migrasi ke SGT terpusat):
+// Saldo sgtBalance TIDAK LAGI disimpan/diubah di Firestore lokal Games.
+// Sekarang diambil/diubah lewat central API di backend Mart
+// (lihat api/_sgtClient.js), dikunci ke `username` Pi — supaya saldo
+// yang sama dipakai bareng oleh Mart, Games, dan Hidayatulamin.
+//
+// Data spesifik game (level, XP, streak, hasil ronde, leaderboard) TETAP
+// disimpan di Firestore lokal Games seperti biasa — yang dipindah HANYA
+// bagian saldo SGT.
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
+import { sgtCredit, sgtDebit } from '../_sgtClient.js';
 getFirebaseApp();
 
 export default async function handler(req, res) {
@@ -29,6 +30,7 @@ export default async function handler(req, res) {
 
   if (!uid) return res.status(400).json({ error: 'uid diperlukan' });
   if (!game_session_id) return res.status(400).json({ error: 'game_session_id diperlukan' });
+  if (!username) return res.status(400).json({ error: 'username diperlukan (untuk saldo SGT terpusat)' });
 
   const bet  = parseFloat(bet_amount)  || 0;
   const earn = parseFloat(earn_amount) || 0;
@@ -44,55 +46,76 @@ export default async function handler(req, res) {
   const sessionRef = db.collection('gameResults').doc(game_session_id);
 
   try {
-    const newBalance = await db.runTransaction(async (tx) => {
-      // Idempotensi: kalau session ini sudah pernah diproses (mis. retry
-      // jaringan), jangan potong/tambah saldo dua kali.
-      const sessionSnap = await tx.get(sessionRef);
-      if (sessionSnap.exists) {
-        const playerSnap = await tx.get(playerRef);
-        return parseFloat((playerSnap.data() || {}).sgtBalance) || 0;
-      }
+    // Idempotensi: kalau session ini sudah pernah diproses (retry jaringan),
+    // jangan panggil credit/debit dua kali.
+    const sessionSnap = await sessionRef.get();
+    if (sessionSnap.exists) {
+      const cachedBalance = sessionSnap.data().balanceAfter;
+      return res.status(200).json({ success: true, newBalance: cachedBalance ?? null, alreadyProcessed: true });
+    }
 
-      const playerSnap = await tx.get(playerRef);
-      const existing = playerSnap.exists ? playerSnap.data() : {};
-      const prevBalance = parseFloat(existing.sgtBalance) || 0;
-
-      const balance = Math.max(0, prevBalance - bet + earn);
-
-      const playerUpdates = {
-        sgtBalance: balance,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      };
-      if (username) playerUpdates.username = username;
-      if (pi_uid) playerUpdates.piUid = pi_uid;
-      if (player_level) playerUpdates.playerLevel = player_level;
-      if (player_xp !== undefined) playerUpdates.playerXP = player_xp;
-      if (login_streak) playerUpdates.loginStreak = login_streak;
-      if (last_login) playerUpdates.lastLogin = last_login;
-      tx.set(playerRef, playerUpdates, { merge: true });
-
-      tx.set(sessionRef, {
-        uid, piUid: pi_uid || uid, username: username || 'pioneer',
-        game: game || 'unknown', gameMode: game_mode || null,
-        outcome: outcome || null, betAmount: bet, earnAmount: earn,
-        score: parseFloat(score) || 0, bonus2x: !!bonus_2x,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    // 1. Potong taruhan dulu (kalau ada) di ledger terpusat
+    let balanceAfterBet = null;
+    if (bet > 0) {
+      const debitResult = await sgtDebit({
+        username, amount: bet,
+        txId: `games_bet_${game_session_id}`,
+        source: 'games_bet',
+        meta: { game, game_mode, uid }
       });
+      balanceAfterBet = debitResult?.sgtBalance ?? null;
+    }
 
-      // Leaderboard "all" berbasis saldo SGT total (konsisten dgn save-progress.js)
-      const lbAllRef = db.collection('leaderboard').doc(`${uid}_all`);
-      tx.set(lbAllRef, {
-        uid, username: username || 'pioneer', game: 'all',
-        sgt: balance, updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+    // 2. Tambah kemenangan (kalau ada) di ledger terpusat
+    let finalBalance = balanceAfterBet;
+    if (earn > 0) {
+      const creditResult = await sgtCredit({
+        username, amount: earn,
+        txId: `games_win_${game_session_id}`,
+        source: 'games_win',
+        meta: { game, game_mode, uid, outcome }
+      });
+      finalBalance = creditResult?.sgtBalance ?? finalBalance;
+    }
 
-      return balance;
+    // Kalau bet=0 dan earn=0 (mis. seri tanpa taruhan), ambil saldo apa adanya
+    // supaya response tetap konsisten — panggil credit(0) tidak dilakukan,
+    // jadi fallback ke null (frontend biarkan pakai saldo lokal yang sudah ada).
+
+    // 3. Simpan data game (level, XP, dsb) — TIDAK termasuk sgtBalance lagi
+    const playerUpdates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (username) playerUpdates.username = username;
+    if (pi_uid) playerUpdates.piUid = pi_uid;
+    if (player_level) playerUpdates.playerLevel = player_level;
+    if (player_xp !== undefined) playerUpdates.playerXP = player_xp;
+    if (login_streak) playerUpdates.loginStreak = login_streak;
+    if (last_login) playerUpdates.lastLogin = last_login;
+    await playerRef.set(playerUpdates, { merge: true });
+
+    await sessionRef.set({
+      uid, piUid: pi_uid || uid, username: username || 'pioneer',
+      game: game || 'unknown', gameMode: game_mode || null,
+      outcome: outcome || null, betAmount: bet, earnAmount: earn,
+      score: parseFloat(score) || 0, bonus2x: !!bonus_2x,
+      balanceAfter: finalBalance,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    return res.status(200).json({ success: true, newBalance });
+    // Leaderboard "all" berbasis saldo SGT total dari ledger terpusat
+    if (finalBalance !== null) {
+      await db.collection('leaderboard').doc(`${uid}_all`).set({
+        uid, username: username || 'pioneer', game: 'all',
+        sgt: finalBalance, updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    return res.status(200).json({ success: true, newBalance: finalBalance });
 
   } catch (err) {
-    console.error('[games/win] ERROR:', err.message);
+    console.error('[games/win] ERROR:', err.message, err.detail || '');
+    if (err.message === 'Saldo SGT tidak cukup') {
+      return res.status(400).json({ error: 'Saldo SGT tidak cukup', success: false });
+    }
     return res.status(500).json({ error: err.message });
   }
 }

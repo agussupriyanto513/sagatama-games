@@ -1,7 +1,11 @@
 // /api/games/level-bonus.js
-// Klaim bonus SGT saat naik level. Endpoint ini sebelumnya HILANG dari
-// backend padahal dipanggil oleh claimLevelBonus() di frontend.
+// Klaim bonus SGT saat naik level.
+//
+// PERUBAHAN PENTING: saldo SGT dikreditkan lewat central ledger, bukan
+// field sgtBalance lokal. Pengecekan anti-cheat "level ini sudah diklaim"
+// tetap di Firestore lokal (bukan soal saldo, aman disimpan lokal).
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
+import { sgtCredit } from '../_sgtClient.js';
 getFirebaseApp();
 
 const MAX_BONUS = 100000; // batas wajar, jaga-jaga dari nilai aneh dari client
@@ -15,6 +19,7 @@ export default async function handler(req, res) {
 
   const { uid, pi_uid, username, player_level, bonus_amount } = req.body;
   if (!uid) return res.status(400).json({ error: 'uid diperlukan' });
+  if (!username) return res.status(400).json({ error: 'username diperlukan (untuk saldo SGT terpusat)' });
 
   const level = parseInt(player_level);
   const bonus = parseFloat(bonus_amount);
@@ -32,40 +37,43 @@ export default async function handler(req, res) {
   const playerRef = db.collection('players').doc(uid);
 
   try {
-    const newBalance = await db.runTransaction(async (tx) => {
+    // 1. Cek & catat "level ini sudah diklaim" secara atomik (LOKAL)
+    await db.runTransaction(async (tx) => {
       const snap = await tx.get(playerRef);
       const existing = snap.exists ? snap.data() : {};
-      const prevBalance    = parseFloat(existing.sgtBalance) || 0;
       const lastBonusLevel = existing.lastBonusLevel || 0;
 
-      // Anti-cheat: level bonus untuk level ini sudah pernah diklaim
       if (level <= lastBonusLevel) {
         const e = new Error('Bonus level ini sudah pernah diklaim');
         e.code = 'ALREADY_CLAIMED';
         throw e;
       }
 
-      const balance = prevBalance + bonus;
       const updates = {
-        sgtBalance: balance,
         lastBonusLevel: level,
         playerLevel: Math.max(level, existing.playerLevel || 1),
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       };
       if (username) updates.username = username;
       if (pi_uid) updates.piUid = pi_uid;
-
       tx.set(playerRef, updates, { merge: true });
-      return balance;
     });
 
-    return res.status(200).json({ success: true, newBalance });
+    // 2. Kreditkan SGT ke ledger terpusat
+    const result = await sgtCredit({
+      username, amount: bonus,
+      txId: `games_levelbonus_${uid}_${level}`,
+      source: 'games_level_bonus',
+      meta: { uid, level }
+    });
+
+    return res.status(200).json({ success: true, newBalance: result?.sgtBalance ?? null });
 
   } catch (err) {
     if (err.code === 'ALREADY_CLAIMED') {
       return res.status(409).json({ error: 'Bonus level ini sudah pernah diklaim' });
     }
-    console.error('[games/level-bonus] ERROR:', err.message);
+    console.error('[games/level-bonus] ERROR:', err.message, err.detail || '');
     return res.status(500).json({ error: err.message });
   }
 }

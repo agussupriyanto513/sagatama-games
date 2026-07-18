@@ -1,9 +1,11 @@
 // /api/games/shop-buy.js
-// Potong saldo SGT secara aman di server saat user beli item di Upgrade Shop.
-// Endpoint ini sebelumnya HILANG dari backend padahal dipanggil oleh
-// buyItem() di frontend — akibatnya saldo hasil pembelian cuma berubah di
-// localStorage device dan bisa dimanipulasi user (edit localStorage manual).
+// Potong saldo SGT secara aman saat user beli item di Upgrade Shop.
+//
+// PERUBAHAN PENTING (migrasi ke SGT terpusat): pemotongan saldo sekarang
+// lewat central API di backend Mart (api/_sgtClient.js), dikunci ke
+// `username` Pi, bukan field sgtBalance lokal lagi.
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
+import { sgtDebit } from '../_sgtClient.js';
 getFirebaseApp();
 
 export default async function handler(req, res) {
@@ -16,6 +18,7 @@ export default async function handler(req, res) {
   const { uid, pi_uid, username, item_tab, item_id, item_price, player_level, player_xp } = req.body;
   if (!uid) return res.status(400).json({ error: 'uid diperlukan' });
   if (!item_id) return res.status(400).json({ error: 'item_id diperlukan' });
+  if (!username) return res.status(400).json({ error: 'username diperlukan (untuk saldo SGT terpusat)' });
 
   const price = parseFloat(item_price);
   if (isNaN(price) || price <= 0) return res.status(400).json({ error: 'item_price tidak valid' });
@@ -29,45 +32,38 @@ export default async function handler(req, res) {
   const playerRef = db.collection('players').doc(uid);
 
   try {
-    const newBalance = await db.runTransaction(async (tx) => {
-      const snap = await tx.get(playerRef);
-      const existing = snap.exists ? snap.data() : {};
-      const prevBalance = parseFloat(existing.sgtBalance) || 0;
+    // txId dari uid+item+harga+menit supaya double-klik cepat tidak dobel
+    // potong, tapi tetap unik untuk pembelian ulang item yang sama di lain waktu.
+    const txId = `games_shop_${uid}_${item_id}_${Date.now()}`;
 
-      if (prevBalance < price) {
-        const e = new Error('Saldo SGT tidak cukup');
-        e.code = 'INSUFFICIENT_BALANCE';
-        throw e;
-      }
+    const debitResult = await sgtDebit({
+      username, amount: price, txId,
+      source: 'games_shop_buy',
+      meta: { uid, item_tab, item_id }
+    });
 
-      const balance = prevBalance - price;
-      const updates = {
-        sgtBalance: balance,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      };
-      if (username) updates.username = username;
-      if (pi_uid) updates.piUid = pi_uid;
-      if (player_level) updates.playerLevel = player_level;
-      if (player_xp !== undefined) updates.playerXP = player_xp;
-      tx.set(playerRef, updates, { merge: true });
+    const newBalance = debitResult?.sgtBalance ?? null;
 
-      const purchaseRef = db.collection('purchases').doc();
-      tx.set(purchaseRef, {
-        uid, piUid: pi_uid || uid, username: username || 'pioneer',
-        itemTab: item_tab || null, itemId: item_id, price,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
+    const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (username) updates.username = username;
+    if (pi_uid) updates.piUid = pi_uid;
+    if (player_level) updates.playerLevel = player_level;
+    if (player_xp !== undefined) updates.playerXP = player_xp;
+    await playerRef.set(updates, { merge: true });
 
-      return balance;
+    await db.collection('purchases').add({
+      uid, piUid: pi_uid || uid, username: username || 'pioneer',
+      itemTab: item_tab || null, itemId: item_id, price,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
     return res.status(200).json({ success: true, newBalance });
 
   } catch (err) {
-    if (err.code === 'INSUFFICIENT_BALANCE') {
+    if (err.message === 'Saldo SGT tidak cukup') {
       return res.status(400).json({ error: 'Saldo SGT tidak cukup', success: false });
     }
-    console.error('[games/shop-buy] ERROR:', err.message);
+    console.error('[games/shop-buy] ERROR:', err.message, err.detail || '');
     return res.status(500).json({ error: err.message });
   }
 }

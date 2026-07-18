@@ -9,7 +9,14 @@
 // rewrite rules di vercel.json, jadi URL yang dipanggil frontend TIDAK
 // berubah sama sekali (mis. /api/payments/approve tetap jalan seperti biasa).
 import { admin, getFirebaseApp } from '../../firebase-init.js';
+import { sgtCredit } from '../_sgtClient.js';
 getFirebaseApp();
+
+// Ambil username Pi dari dokumen player lokal (di-set saat login di pi-auth.js)
+async function getUsernameForUid(db, uid) {
+  const snap = await db.collection('players').doc(uid).get();
+  return snap.exists ? (snap.data().username || null) : null;
+}
 
 // ── Helper bersama: fetch ke Pi Platform API, handle response non-JSON ──
 async function piRequest(url, options = {}) {
@@ -268,17 +275,18 @@ async function handleComplete(req, res) {
 
     const sgt = parseInt(sgtAmount) || 0;
     if (uid && sgt > 0) {
-      const playerRef = db.collection('players').doc(uid);
-      await db.runTransaction(async (t) => {
-        const playerSnap = await t.get(playerRef);
-        if (!playerSnap.exists) {
-          throw new Error(`Player ${uid} tidak ditemukan`);
-        }
-        const currentBalance = parseFloat(playerSnap.data().sgtBalance) || 0;
-        t.update(playerRef, {
-          sgtBalance: currentBalance + sgt,
-          updatedAt:  admin.firestore.FieldValue.serverTimestamp()
-        });
+      const username = await getUsernameForUid(db, uid);
+      if (!username) {
+        throw new Error(`Player ${uid} tidak ditemukan / belum punya username — tidak bisa kredit SGT terpusat`);
+      }
+
+      // Kredit ke ledger SGT terpusat (backend Mart), txId = paymentId Pi
+      // supaya idempotent kalau endpoint ini dipanggil ulang.
+      await sgtCredit({
+        username, amount: sgt,
+        txId: `games_topup_${paymentId}`,
+        source: 'games_topup',
+        meta: { uid, paymentId, txid }
       });
 
       await db.collection('topup_history').add({
@@ -345,20 +353,32 @@ async function incompleteCancelOnPi(paymentId) {
 async function incompleteCreditSGT(uid, sgtAmount, paymentId) {
   try {
     const db = admin.firestore();
-    const payRef    = db.collection('pi_payments').doc(paymentId);
-    const playerRef = db.collection('players').doc(uid);
+    const payRef = db.collection('pi_payments').doc(paymentId);
 
-    await db.runTransaction(async t => {
-      const [paySnap, playerSnap] = await Promise.all([t.get(payRef), t.get(playerRef)]);
-      if (paySnap.exists && paySnap.data().status === 'completed') {
-        console.log(`[incomplete] SGT sudah dikreditkan, skip`);
-        return;
-      }
-      const current = playerSnap.exists ? (playerSnap.data().sgtBalance || 0) : 0;
-      t.set(playerRef, { sgtBalance: current + sgtAmount, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      t.set(payRef,    { status: 'completed', updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    const paySnap = await payRef.get();
+    if (paySnap.exists && paySnap.data().status === 'completed') {
+      console.log(`[incomplete] SGT sudah dikreditkan, skip`);
+      return;
+    }
+
+    const username = await getUsernameForUid(db, uid);
+    if (!username) {
+      console.error(`[incomplete] Player ${uid} tidak punya username, tidak bisa kredit SGT terpusat`);
+      return;
+    }
+
+    // txId = paymentId → sama dengan yang dipakai handleComplete, jadi
+    // walaupun kedua alur ini kebetulan sama-sama jalan untuk paymentId
+    // yang sama, ledger terpusat tetap hanya memprosesnya sekali.
+    await sgtCredit({
+      username, amount: sgtAmount,
+      txId: `games_topup_${paymentId}`,
+      source: 'games_topup_incomplete',
+      meta: { uid, paymentId }
     });
-    console.log(`[incomplete] ✅ Kredit ${sgtAmount} SGT → uid=${uid}`);
+
+    await payRef.set({ status: 'completed', updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    console.log(`[incomplete] ✅ Kredit ${sgtAmount} SGT → username=${username}`);
   } catch(e) { console.error(`[incomplete] Kredit SGT error:`, e.message); }
 }
 

@@ -1,16 +1,10 @@
-// /api/payments/pi-auth.js
-// Verifikasi Pi Network accessToken → buat Firebase Custom Token
+// /api/pi-auth.js
+// Verifikasi Pi Network accessToken → buat Firebase Custom Token lokal
+// (tetap dipakai untuk data spesifik game: level, XP, avatar, dll)
+// + pastikan wallet SGT terpusat ada di backend Mart.
 import { admin, getFirebaseApp } from "../firebase-init.js";
+import { sgtEnsureByAccessToken } from "./_sgtClient.js";
 
-// PENTING: pakai helper bersama (getFirebaseApp) supaya project ID & kredensial
-// SELALU sama persis dengan endpoint lain (api/players/ensure.js, dll).
-// Sebelumnya file ini punya inisialisasi admin.initializeApp() sendiri yang
-// TIDAK membersihkan tanda kutip liar pada env var (FIREBASE_PROJECT_ID /
-// FIREBASE_CLIENT_EMAIL). Kalau env var di Vercel ke-paste dengan tanda kutip
-// ikut terbawa, custom token yang dibuat di sini jadi ditandatangani untuk
-// project ID yang berbeda dari project di frontend (SAGATAMA-GAMES.html),
-// dan Firebase menolaknya di client dengan error
-// "auth/custom-token-mismatch" — persis seperti yang dilaporkan.
 getFirebaseApp();
 
 export default async function handler(req, res) {
@@ -18,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { accessToken, uid: clientUid, username: clientUsername } = req.body;
+  const { accessToken } = req.body;
 
   if (!accessToken) {
     return res.status(400).json({ error: 'accessToken diperlukan' });
@@ -39,30 +33,29 @@ export default async function handler(req, res) {
     }
 
     const piUser = await piRes.json();
-    const piUid     = piUser.uid;
-    const piUsername = piUser.username;
+    const piUid     = piUser.uid;       // app-local, dipakai sebagai Firebase UID lokal Games
+    const piUsername = piUser.username; // konsisten lintas app, dipakai sebagai kunci SGT terpusat
 
-    // 2. Buat Firebase Custom Token dengan piUid sebagai UID
-    //    Sehingga setiap user Pi selalu punya Firebase UID yang sama
+    // 2. Buat Firebase Custom Token dengan piUid sebagai UID lokal
     const firebaseToken = await admin.auth().createCustomToken(piUid, {
       piUid,
       username: piUsername
     });
 
-    // 3. Pastikan dokumen player ada di Firestore
+    // 3. Pastikan dokumen player LOKAL ada (untuk data spesifik game saja —
+    //    field sgtBalance TIDAK dipakai lagi mulai dari sini, sengaja tidak
+    //    di-set supaya tidak ada yang salah baca dari sini)
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(piUid);
     const snap = await playerRef.get();
 
     if (!snap.exists) {
-      // Buat dokumen baru untuk player pertama kali
       const avatars = ['🦁','🐉','🦊','🐺','🦅','🐯','🦄','🐻','🦋','🌟'];
       await playerRef.set({
         uid:        piUid,
         piUid:      piUid,
         username:   piUsername,
         avatar:     avatars[Math.floor(Math.random() * avatars.length)],
-        sgtBalance: 50,      // SGT awal untuk player baru
         playerLevel: 1,
         playerXP:   0,
         loginStreak: 1,
@@ -71,18 +64,30 @@ export default async function handler(req, res) {
         updatedAt:  admin.firestore.FieldValue.serverTimestamp()
       });
     } else {
-      // Update username jika berubah
       await playerRef.update({
         username:  piUsername,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       });
     }
 
+    // 4. Pastikan wallet SGT terpusat ada & ambil saldo terkini dari sana
+    //    (bukan dari Firestore lokal Games lagi)
+    let sgtBalance = 0;
+    try {
+      const central = await sgtEnsureByAccessToken(accessToken);
+      sgtBalance = central?.sgtBalance ?? 0;
+    } catch (e) {
+      // Kalau central API sedang down, jangan gagalkan login — cuma saldo
+      // yang belum bisa ditampilkan, frontend bisa retry ambil balance nanti.
+      console.error('[pi-auth] Gagal ensure wallet SGT terpusat:', e.message);
+    }
+
     return res.status(200).json({
       success:       true,
       firebaseToken,
       uid:           piUid,
-      username:      piUsername
+      username:      piUsername,
+      sgtBalance
     });
 
   } catch (err) {

@@ -1,9 +1,14 @@
 // /api/games/daily-reward.js
-// Klaim hadiah harian + hitung streak. Endpoint ini sebelumnya HILANG dari
-// backend padahal dipanggil oleh claimDaily() di frontend — akibatnya klaim
-// harian cuma nyimpen ke localStorage device, tidak pernah sinkron ke cloud,
-// dan menyebabkan alert "Gagal memproses" saat diklik.
+// Klaim hadiah harian + hitung streak.
+//
+// PERUBAHAN PENTING (migrasi ke SGT terpusat):
+// Saldo SGT sekarang ditambah lewat central ledger (backend Mart), bukan
+// field sgtBalance lokal lagi. Pengecekan "sudah klaim hari ini / berapa
+// streak-nya" TETAP dilakukan di Firestore lokal Games (itu bukan uang,
+// aman disimpan lokal) — baru setelah lolos cek itu, SGT-nya dikreditkan
+// ke ledger terpusat.
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
+import { sgtCredit } from '../_sgtClient.js';
 getFirebaseApp();
 
 function computeReward(streak) {
@@ -23,6 +28,7 @@ export default async function handler(req, res) {
   const { uid, pi_uid, username, today } = req.body;
   if (!uid) return res.status(400).json({ error: 'uid diperlukan' });
   if (!today) return res.status(400).json({ error: 'today diperlukan' });
+  if (!username) return res.status(400).json({ error: 'username diperlukan (untuk saldo SGT terpusat)' });
 
   const decoded = await verifyAuth(req);
   if (decoded && decoded.uid !== uid) {
@@ -33,22 +39,20 @@ export default async function handler(req, res) {
   const playerRef = db.collection('players').doc(uid);
 
   try {
-    const result = await db.runTransaction(async (tx) => {
+    // 1. Cek & catat klaim hari ini secara atomik (LOKAL, bukan soal saldo)
+    const streakInfo = await db.runTransaction(async (tx) => {
       const snap = await tx.get(playerRef);
       const existing = snap.exists ? snap.data() : {};
 
       const prevLastLogin = existing.lastLogin || '';
       const prevStreak    = existing.loginStreak || 0;
-      const prevBalance   = parseFloat(existing.sgtBalance) || 0;
 
-      // Sudah klaim hari ini (dicek dari data server, bukan dari client)
       if (prevLastLogin === today) {
         const e = new Error('Sudah klaim hari ini');
         e.code = 'ALREADY_CLAIMED';
         throw e;
       }
 
-      // Hitung streak dari data server (anti-cheat: tidak percaya login_streak dari client)
       let newStreak;
       if (!prevLastLogin) {
         newStreak = 1;
@@ -59,36 +63,42 @@ export default async function handler(req, res) {
         newStreak = (diffDays === 1) ? Math.min(prevStreak + 1, 30) : 1;
       }
 
-      const { reward, isWeekly } = computeReward(newStreak);
-      const newBalance = prevBalance + reward;
-
       const updates = {
-        sgtBalance: newBalance,
         loginStreak: newStreak,
         lastLogin: today,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       };
       if (username) updates.username = username;
       if (pi_uid) updates.piUid = pi_uid;
-
       tx.set(playerRef, updates, { merge: true });
 
-      return { reward, newStreak, newBalance, isWeekly };
+      return { newStreak };
+    });
+
+    // 2. Baru sekarang kreditkan SGT ke ledger terpusat.
+    //    txId pakai uid+today supaya kalaupun endpoint ini kepanggil ulang
+    //    (retry jaringan), tidak dobel kredit.
+    const { reward, isWeekly } = computeReward(streakInfo.newStreak);
+    const result = await sgtCredit({
+      username, amount: reward,
+      txId: `games_daily_${uid}_${today}`,
+      source: 'games_daily_reward',
+      meta: { uid, streak: streakInfo.newStreak, isWeekly }
     });
 
     return res.status(200).json({
       success: true,
-      reward: result.reward,
-      loginStreak: result.newStreak,
-      newBalance: result.newBalance,
-      isWeekly: result.isWeekly
+      reward,
+      loginStreak: streakInfo.newStreak,
+      newBalance: result?.sgtBalance ?? null,
+      isWeekly
     });
 
   } catch (err) {
     if (err.code === 'ALREADY_CLAIMED') {
       return res.status(409).json({ error: 'Sudah klaim hari ini' });
     }
-    console.error('[games/daily-reward] ERROR:', err.message);
+    console.error('[games/daily-reward] ERROR:', err.message, err.detail || '');
     return res.status(500).json({ error: err.message });
   }
 }
