@@ -8,7 +8,7 @@
 // `username` Pi (bukan `uid` lokal Games) — lihat catatan di
 // api/sgt/_lib.js pada repo sagatama-mart.
 
-const SGT_BACKEND = process.env.SGT_BACKEND_URL || 'https://sagatama-backend.vercel.app';
+const SGT_BACKEND = process.env.SGT_BACKEND_URL || 'https://sagatama-mart.vercel.app';
 
 async function sgtCall(endpoint, body) {
   const secret = process.env.SGT_INTERNAL_SECRET;
