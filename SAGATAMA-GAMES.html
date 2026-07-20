@@ -2252,11 +2252,22 @@ async function piTopUpSGT(piAmount) {
           if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
             console.error('[approve] Server error:', err);
+            // ── DEBUG SEMENTARA: tampilkan detail error di layar biar bisa
+            // di-screenshot langsung dari HP tanpa perlu buka Vercel Logs.
+            // Hapus toast ini kalau masalah top-up sudah selesai.
+            toast(
+              `🔧DEBUG id=${paymentId} len=${(paymentId||'').length} | ` +
+              `err=${err.detail?.error || err.error || '?'} | ` +
+              `keyLen=${err.debugKeyLen} keyPrev=${err.debugKeyPreview}`,
+              'red',
+              15000
+            );
           } else {
             console.log('[approve] ✅ Payment approved:', paymentId);
           }
         } catch(e) {
           console.error('[approve] Fetch error:', e.message);
+          toast(`🔧DEBUG fetch error: ${e.message}`, 'red', 15000);
         }
       },
 
@@ -2710,13 +2721,13 @@ function _showResultFallbackLocal(won, isDraw, earn, gameScore, msgEl){
 
 // ── TOAST ──
 let _tt;
-function toast(msg,type='default'){
+function toast(msg,type='default',duration=3000){
   const t=document.getElementById('g-toast');
   t.textContent=msg;t.className='toast show';
   if(type==='gold')t.className+=' gold';
   if(type==='red')t.className+=' red';
   if(type==='green')t.className+=' green';
-  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);
+  clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),duration);
 }
 window.toast=toast;
 
