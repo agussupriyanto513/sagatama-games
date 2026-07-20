@@ -8,6 +8,21 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   const rawKey = process.env.PI_API_KEY || '';
+  const lookupId = req.query.id;
+
+  if (lookupId) {
+    try {
+      const resp = await fetch(`https://api.minepi.com/v2/payments/${lookupId}`, {
+        headers: { 'Authorization': `Key ${rawKey}` }
+      });
+      const text = await resp.text();
+      let body;
+      try { body = JSON.parse(text); } catch { body = text.slice(0, 500); }
+      return res.status(200).json({ lookupId, status: resp.status, ok: resp.ok, body });
+    } catch (e) {
+      return res.status(200).json({ lookupId, error: e.message });
+    }
+  }
 
   const keyInfo = {
     length: rawKey.length,
