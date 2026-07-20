@@ -5,7 +5,11 @@
 import { admin, getFirebaseApp } from "../firebase-init.js";
 import { sgtEnsureByAccessToken } from "./_sgtClient.js";
 
-getFirebaseApp();
+try {
+  getFirebaseApp();
+} catch (e) {
+  console.error('[init] Firebase gagal diinisialisasi:', e.message);
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
