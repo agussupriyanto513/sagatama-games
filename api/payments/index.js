@@ -130,7 +130,14 @@ async function handleApprove(req, res) {
     if (!piResp.ok) {
       console.error(`[approve] Pi API gagal (HTTP ${piResp.status}):`, piData);
       saveToFirestore('approval_failed', JSON.stringify(piData));
-      return res.status(400).json({ error: 'Pi approval failed', detail: piData });
+      return res.status(400).json({
+        error: 'Pi approval failed',
+        detail: piData,
+        debugPaymentId: paymentId,
+        debugPaymentIdLen: (paymentId || '').length,
+        debugKeyLen: trimmedKey.length,
+        debugKeyPreview: trimmedKey.length > 8 ? `${trimmedKey.slice(0,4)}...${trimmedKey.slice(-4)}` : '(pendek/kosong)'
+      });
     }
 
     res.status(200).json({ success: true, ...piData });
