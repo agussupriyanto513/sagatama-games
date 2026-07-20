@@ -9,7 +9,11 @@
 // ke ledger terpusat.
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
 import { sgtCredit } from '../_sgtClient.js';
-getFirebaseApp();
+try {
+  getFirebaseApp();
+} catch (e) {
+  console.error('[init] Firebase gagal diinisialisasi:', e.message);
+}
 
 function computeReward(streak) {
   let reward = 10 + (5 * streak);

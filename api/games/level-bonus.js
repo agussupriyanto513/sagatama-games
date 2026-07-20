@@ -6,7 +6,11 @@
 // tetap di Firestore lokal (bukan soal saldo, aman disimpan lokal).
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
 import { sgtCredit } from '../_sgtClient.js';
-getFirebaseApp();
+try {
+  getFirebaseApp();
+} catch (e) {
+  console.error('[init] Firebase gagal diinisialisasi:', e.message);
+}
 
 const MAX_BONUS = 100000; // batas wajar, jaga-jaga dari nilai aneh dari client
 

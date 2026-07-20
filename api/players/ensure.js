@@ -3,7 +3,11 @@
 // Endpoint ini sebelumnya HILANG dari backend padahal dipanggil oleh frontend,
 // sehingga data player tidak pernah tersinkron ke server dengan andal.
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
-getFirebaseApp();
+try {
+  getFirebaseApp();
+} catch (e) {
+  console.error('[init] Firebase gagal diinisialisasi:', e.message);
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

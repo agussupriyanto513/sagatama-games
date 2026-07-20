@@ -17,7 +17,11 @@
 // (read-only) untuk ditampilkan di leaderboard — bukan untuk mengubahnya.
 import { admin, getFirebaseApp, verifyAuth } from '../../firebase-init.js';
 import { sgtBalanceByUsername } from '../_sgtClient.js';
-getFirebaseApp();
+try {
+  getFirebaseApp();
+} catch (e) {
+  console.error('[init] Firebase gagal diinisialisasi:', e.message);
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

@@ -10,7 +10,16 @@
 // berubah sama sekali (mis. /api/payments/approve tetap jalan seperti biasa).
 import { admin, getFirebaseApp } from '../../firebase-init.js';
 import { sgtCredit } from '../_sgtClient.js';
-getFirebaseApp();
+try {
+  getFirebaseApp();
+} catch (e) {
+  // JANGAN biarkan error init Firebase menjatuhkan seluruh module ini.
+  // Kalau ini throw tanpa try/catch, SEMUA handler (approve, complete, dst)
+  // gagal total sebelum sempat jalan — approve ke Pi Platform tidak pernah
+  // terkirim, sehingga Pi Wallet menunjukkan "Pembayaran Kedaluwarsa"
+  // walaupun approve-nya sendiri sebenarnya bisa berhasil tanpa Firebase.
+  console.error('[init] Firebase gagal diinisialisasi:', e.message);
+}
 
 // Ambil username Pi dari dokumen player lokal (di-set saat login di pi-auth.js)
 async function getUsernameForUid(db, uid) {
@@ -70,6 +79,14 @@ async function handleApprove(req, res) {
   const { paymentId, uid, sgtAmount } = req.body;
   if (!paymentId) return res.status(400).json({ error: 'paymentId diperlukan' });
 
+  // ── Diagnostik sementara: cek key yang benar-benar dipakai runtime ──
+  // Tidak mencetak key asli, cuma panjang & 4 karakter pertama/terakhir,
+  // supaya bisa dibandingkan dengan key yang ada di Pi Developer Portal
+  // tanpa membocorkan key-nya di log.
+  const rawKey = process.env.PI_API_KEY || '';
+  const trimmedKey = rawKey.trim();
+  console.log(`[approve] paymentId=${paymentId} keyLen=${trimmedKey.length} keyPreview=${trimmedKey.slice(0,4)}...${trimmedKey.slice(-4)} hasWhitespace=${rawKey !== trimmedKey}`);
+
   const saveToFirestore = (status, errorMsg) => {
     const db = admin.firestore();
     const data = {
@@ -85,12 +102,24 @@ async function handleApprove(req, res) {
   };
 
   try {
+    // Cek dulu apakah Pi Platform mengenali payment ini SEBELUM approve,
+    // supaya kalau nanti approve gagal dengan payment_not_found, log ini
+    // bisa dibandingkan: apakah GET-nya juga not_found (berarti memang
+    // key/app salah), atau GET-nya ketemu tapi approve tetap gagal
+    // (berarti masalah lain, misal payment sudah expired/cancelled Pi).
+    try {
+      const lookup = await piRequest(`https://api.minepi.com/v2/payments/${paymentId}`);
+      console.log(`[approve] Pre-check GET payment (HTTP ${lookup.status}):`, JSON.stringify(lookup.data));
+    } catch (lookupErr) {
+      console.warn(`[approve] Pre-check GET gagal:`, lookupErr.message);
+    }
+
     const piResp = await fetch(
       `https://api.minepi.com/v2/payments/${paymentId}/approve`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Key ${process.env.PI_API_KEY}`,
+          'Authorization': `Key ${trimmedKey}`,
           'Content-Type':  'application/json'
         }
       }
@@ -99,7 +128,7 @@ async function handleApprove(req, res) {
     const piData = await piResp.json();
 
     if (!piResp.ok) {
-      console.error(`[approve] Pi API gagal:`, piData);
+      console.error(`[approve] Pi API gagal (HTTP ${piResp.status}):`, piData);
       saveToFirestore('approval_failed', JSON.stringify(piData));
       return res.status(400).json({ error: 'Pi approval failed', detail: piData });
     }
