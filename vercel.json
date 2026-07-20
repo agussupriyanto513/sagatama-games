@@ -17,6 +17,7 @@
   },
   "routes": [
     { "src": "/api/pi-auth",                    "dest": "/api/pi-auth.js" },
+    { "src": "/api/debug-pi-key",               "dest": "/api/debug-pi-key.js" },
 
     { "src": "/api/payments/approve",           "dest": "/api/payments/index.js?action=approve" },
     { "src": "/api/payments/cancel-stuck",      "dest": "/api/payments/index.js?action=cancel-stuck" },
