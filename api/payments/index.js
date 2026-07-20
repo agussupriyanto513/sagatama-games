@@ -79,13 +79,29 @@ async function handleApprove(req, res) {
   const { paymentId, uid, sgtAmount } = req.body;
   if (!paymentId) return res.status(400).json({ error: 'paymentId diperlukan' });
 
-  // ── Diagnostik sementara: cek key yang benar-benar dipakai runtime ──
-  // Tidak mencetak key asli, cuma panjang & 4 karakter pertama/terakhir,
-  // supaya bisa dibandingkan dengan key yang ada di Pi Developer Portal
-  // tanpa membocorkan key-nya di log.
   const rawKey = process.env.PI_API_KEY || '';
   const trimmedKey = rawKey.trim();
   console.log(`[approve] paymentId=${paymentId} keyLen=${trimmedKey.length} keyPreview=${trimmedKey.slice(0,4)}...${trimmedKey.slice(-4)} hasWhitespace=${rawKey !== trimmedKey}`);
+
+  // ── DEBUG SEMENTARA: simpan seluruh detail percobaan approve ke SATU
+  // dokumen tetap (bukan riwayat), supaya bisa dicek kapan saja lewat
+  // GET /api/debug-last-approve TANPA harus buru-buru buka Vercel Logs
+  // atau screenshot layar Pi Wallet yang nutupin halaman kita.
+  // Hapus blok ini + endpoint debug-last-approve.js kalau sudah selesai.
+  const debugRef = admin.firestore().collection('_debug').doc('latest_approve');
+  const debugLog = (fields) => {
+    debugRef.set({
+      ...fields,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: false }).catch(e => console.error('[approve] debugLog error:', e.message));
+  };
+  debugLog({
+    stage: 'start',
+    paymentId, paymentIdLen: paymentId.length, uid: uid || null, sgtAmount: sgtAmount || 0,
+    keyLen: trimmedKey.length,
+    keyPreview: trimmedKey.length > 8 ? `${trimmedKey.slice(0,4)}...${trimmedKey.slice(-4)}` : '(pendek/kosong)',
+    hasWhitespace: rawKey !== trimmedKey
+  });
 
   const saveToFirestore = (status, errorMsg) => {
     const db = admin.firestore();
@@ -110,8 +126,10 @@ async function handleApprove(req, res) {
     try {
       const lookup = await piRequest(`https://api.minepi.com/v2/payments/${paymentId}`);
       console.log(`[approve] Pre-check GET payment (HTTP ${lookup.status}):`, JSON.stringify(lookup.data));
+      debugLog({ stage: 'precheck', paymentId, precheckStatus: lookup.status, precheckBody: lookup.data });
     } catch (lookupErr) {
       console.warn(`[approve] Pre-check GET gagal:`, lookupErr.message);
+      debugLog({ stage: 'precheck_error', paymentId, precheckError: lookupErr.message });
     }
 
     const piResp = await fetch(
@@ -130,6 +148,12 @@ async function handleApprove(req, res) {
     if (!piResp.ok) {
       console.error(`[approve] Pi API gagal (HTTP ${piResp.status}):`, piData);
       saveToFirestore('approval_failed', JSON.stringify(piData));
+      debugLog({
+        stage: 'approve_failed', paymentId, paymentIdLen: paymentId.length,
+        approveHttpStatus: piResp.status, approveBody: piData,
+        keyLen: trimmedKey.length,
+        keyPreview: trimmedKey.length > 8 ? `${trimmedKey.slice(0,4)}...${trimmedKey.slice(-4)}` : '(pendek/kosong)'
+      });
       return res.status(400).json({
         error: 'Pi approval failed',
         detail: piData,
@@ -140,12 +164,15 @@ async function handleApprove(req, res) {
       });
     }
 
+    debugLog({ stage: 'approve_success', paymentId, approveHttpStatus: piResp.status, approveBody: piData });
+
     res.status(200).json({ success: true, ...piData });
     saveToFirestore('approved', null);
 
   } catch (err) {
     console.error('[approve] ERROR:', err.message);
     saveToFirestore('approval_error', err.message);
+    debugLog({ stage: 'exception', paymentId, errorMessage: err.message });
     return res.status(500).json({ error: err.message });
   }
 }
