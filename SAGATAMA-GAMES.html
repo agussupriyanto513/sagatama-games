@@ -1800,7 +1800,9 @@ async function logoutUser() {
 
   // Kembali ke splash login supaya user bisa login ulang (Pi / mode tamu)
   const loginStatus = document.getElementById('pi-login-status');
+  const loginBtn = document.getElementById('pi-login-btn');
   if (loginStatus) loginStatus.textContent = '';
+  if (loginBtn) loginBtn.disabled = false; // pastikan tombol bisa diklik lagi setelah logout
   showLoginSplash();
 }
 window.logoutUser = logoutUser;
@@ -1896,6 +1898,7 @@ const resp = await fetch(`${BACKEND_URL}/api/pi-auth`, {
 
     hideLoginSplash();
     if (loginStatus) loginStatus.textContent = '';
+    if (loginBtn) loginBtn.disabled = false; // penting: reset supaya logout→login lagi tidak macet
     toast('✅ Selamat datang, @' + window.piUsername + '!', 'green');
     if (window.loadSGT) window.loadSGT();
     if (window.updateLevelUI) window.updateLevelUI();
