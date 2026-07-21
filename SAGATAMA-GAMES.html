@@ -2096,6 +2096,13 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── LOAD MY DATA ──
+// PENTING: fungsi ini TIDAK LAGI menimpa sgtBalance dari Firestore lokal
+// (collection 'players'). Field sgtBalance di situ sudah tidak pernah
+// di-update lagi sejak saldo SGT dipindah ke ledger terpusat (backend
+// Mart) — kalau tetap dibaca di sini, dia akan menimpa balik saldo yang
+// benar (yang baru saja diambil dari ensurePlayerDoc()/backend pusat)
+// dengan angka lama yang sudah basi. Field lain (level/XP/streak) masih
+// aman dibaca dari sini karena bukan data uang, tidak terpengaruh migrasi.
 async function loadMyData() {
   if (!fbUid) return;
   try {
@@ -2103,11 +2110,6 @@ async function loadMyData() {
     const snap = await getDoc(ref);
     if (snap.exists()) {
       const d = snap.data();
-      if (d.sgtBalance !== undefined && !isNaN(d.sgtBalance)) {
-        window.sgtBalance = parseFloat(d.sgtBalance);
-        window.updSgt && window.updSgt();
-        localStorage.setItem('sgt_balance', d.sgtBalance);
-      }
       if (d.playerLevel) { window.playerLevel = d.playerLevel; localStorage.setItem('gh_level', d.playerLevel); }
       if (d.playerXP)    { window.playerXP = d.playerXP;       localStorage.setItem('gh_xp', d.playerXP); }
       if (d.loginStreak) { window.loginStreak = d.loginStreak; localStorage.setItem('gh_streak', d.loginStreak); }
