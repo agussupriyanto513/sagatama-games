@@ -3616,48 +3616,10 @@ function initGameHub(){
 document.addEventListener('DOMContentLoaded',initGameHub);
 
 // ── FUNGSI KLAIM BACKEND DISELARASKAN ──
-
-async function claimWelcomeBonus() {
-  try {
-    if (typeof toast === "function") toast('⏳ Memproses Welcome Bonus...', 'default');
-    
-    // Diseragamkan menuju endpoint ensure / pendaftaran awal
-    const respon = await window.panggilAPI('/api/players/ensure', {
-      uid: window.fbUid || "TES_USER_MANUAL",
-      username: "Sagatama Player"
-    });
-
-    if (respon && respon.success) {
-      if (typeof toast === "function") toast('🎉 Akun Berhasil Disinkronkan!', 'success');
-      if (typeof loadSGT === "function") loadSGT(); 
-    }
-  } catch (error) {
-    alert("🚨 Gagal klaim bonus: " + error.message);
-  }
-}
-
-async function claimLevelBonus() {
-  try {
-    if (typeof toast === "function") toast('⏳ Memproses Bonus Level...', 'default');
-
-    // Menembak endpoint level-bonus yang ada di backend vercel kamu
-    const respon = await window.panggilAPI('/api/games/level-bonus', {
-      uid: window.fbUid || "TES_USER_MANUAL",
-      bonus_amount: 10 // sesuaikan jumlah bonusnya di sini
-    });
-
-    if (respon && respon.success) {
-      if (typeof toast === "function") toast('💰 Bonus Level Berhasil Ditambahkan!', 'success');
-      if (typeof loadSGT === "function") loadSGT(); 
-    }
-  } catch (error) {
-    alert("🚨 Gagal memproses bonus level: " + error.message);
-  }
-}
-
-// Daftarkan kembali ke window agar tombol lama di HTML tetap mengenalnya
-window.claimWelcomeBonus = claimWelcomeBonus;
-window.claimLevelBonus = claimLevelBonus;
+// (Duplikat claimWelcomeBonus & claimLevelBonus versi lama sudah dihapus —
+//  dulu override versi asli di atas dengan payload tidak lengkap, sehingga
+//  backend menolak dengan "username diperlukan". Versi asli di atas sudah
+//  benar dan tetap dipakai.)
 
 // ── EXPOSE ALL ──
 window.connectWallet=connectWallet;window.claimDaily=claimDaily;window.claimLevelBonus=claimLevelBonus;
